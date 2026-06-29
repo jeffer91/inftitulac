@@ -8,12 +8,14 @@ Función o funciones:
 - Crear, editar y borrar divisiones por período desde un modal de Base Local.
 - Filtrar estudiantes por división.
 - Cargar BL2 completo antes de BaseLocal core/app para paginación real.
+- Inicializar Firebase con configuración local segura antes de baselocal.firebase.js.
 - No mostrar título propio porque Maqueta controla el menú superior.
 Con qué se conecta:
 - BaseLocal services
 - BaseLocal2 db/services/repositories
 - baselocal.connector.js
 - baselocal.core.js
+- baselocal.firebase.js
 - baselocal.app.js
 ========================================================= -->
 <html lang="es">
@@ -76,10 +78,12 @@ Con qué se conecta:
           <button id="bl-btn-pull-firebase" type="button">Solo bajar Firebase</button>
           <button id="bl-btn-create-division" class="bl-btn-primary" type="button">Divisiones</button>
         </div>
+
         <div class="bl-actions-danger">
           <button id="bl-btn-clean-base" class="bl-btn-danger" type="button">Limpiar base</button>
           <button id="bl-btn-delete-period" class="bl-btn-danger" type="button">Borrar período</button>
         </div>
+
         <div class="bl-actions-secondary">
           <button id="bl-btn-export" type="button">Exportar JSON</button>
           <button id="bl-btn-copy-refs" type="button">Copiar referencias</button>
@@ -99,9 +103,11 @@ Con qué se conecta:
       <section id="bl-tab-periodos" class="bl-panel is-active">
         <div id="bl-periodos-table" class="bl-table-wrap"></div>
       </section>
+
       <section id="bl-tab-estudiantes" class="bl-panel">
         <p class="bl-help">Vista paginada para mantener la pantalla rápida. Por defecto se muestran estudiantes activos.</p>
         <div id="bl-estudiantes-table" class="bl-table-wrap"></div>
+
         <div class="bl-pagination">
           <button id="bl-students-first" type="button">Primera</button>
           <button id="bl-students-prev" type="button">Anterior</button>
@@ -110,12 +116,19 @@ Con qué se conecta:
           <button id="bl-students-last" type="button">Última</button>
         </div>
       </section>
+
       <section id="bl-tab-historial" class="bl-panel">
         <p class="bl-help">Se muestran los últimos movimientos para no cargar todo el historial completo.</p>
         <div id="bl-history-table" class="bl-table-wrap"></div>
       </section>
-      <section id="bl-tab-diagnostico" class="bl-panel"><pre id="bl-diagnostics-box" class="bl-diagnostics"></pre></section>
-      <section id="bl-tab-manual" class="bl-panel"><textarea id="bl-manual-text" readonly></textarea></section>
+
+      <section id="bl-tab-diagnostico" class="bl-panel">
+        <pre id="bl-diagnostics-box" class="bl-diagnostics"></pre>
+      </section>
+
+      <section id="bl-tab-manual" class="bl-panel">
+        <textarea id="bl-manual-text" readonly></textarea>
+      </section>
     </main>
   </div>
 
@@ -132,15 +145,32 @@ Con qué se conecta:
 
       <div class="bl-modal-body bl-division-body">
         <section class="bl-division-step bl-step-one">
-          <div class="bl-step-title"><span>1</span><div><strong>Administrar división</strong><small>Selecciona una división, cambia el nombre o crea una nueva.</small></div></div>
-          <div class="bl-division-period-row"><span>Período seleccionado</span><strong id="bl-division-period-label" class="bl-readonly-pill">—</strong></div>
+          <div class="bl-step-title">
+            <span>1</span>
+            <div>
+              <strong>Administrar división</strong>
+              <small>Selecciona una división, cambia el nombre o crea una nueva.</small>
+            </div>
+          </div>
+
+          <div class="bl-division-period-row">
+            <span>Período seleccionado</span>
+            <strong id="bl-division-period-label" class="bl-readonly-pill">—</strong>
+          </div>
+
           <div class="bl-division-control-grid">
-            <label>División
-              <select id="bl-division-existing"><option value="">Nueva división</option></select>
+            <label>
+              División
+              <select id="bl-division-existing">
+                <option value="">Nueva división</option>
+              </select>
             </label>
-            <label>Nombre
+
+            <label>
+              Nombre
               <input id="bl-division-name" type="text" placeholder="Ejemplo: Superior" />
             </label>
+
             <div class="bl-division-icon-actions">
               <button id="bl-division-new" type="button" title="Crear nueva división"><span>＋</span>Nueva</button>
               <button id="bl-division-edit" type="button" title="Editar nombre"><span>✎</span>Editar</button>
@@ -150,7 +180,14 @@ Con qué se conecta:
         </section>
 
         <section class="bl-division-step bl-step-two">
-          <div class="bl-step-title"><span>2</span><div><strong>Agregar o quitar carreras</strong><small id="bl-division-help">Arrastra una carrera entre columnas. También puedes hacer clic sobre una carrera para moverla.</small></div></div>
+          <div class="bl-step-title">
+            <span>2</span>
+            <div>
+              <strong>Agregar o quitar carreras</strong>
+              <small id="bl-division-help">Arrastra una carrera entre columnas. También puedes hacer clic sobre una carrera para moverla.</small>
+            </div>
+          </div>
+
           <div id="bl-division-careers" class="bl-division-drop-grid"></div>
         </section>
       </div>
@@ -171,6 +208,7 @@ Con qué se conecta:
         </div>
         <button id="bl-delete-period-close" class="bl-modal-close" type="button">×</button>
       </div>
+
       <div class="bl-modal-body">
         <div class="bl-delete-period-box">
           <span>Período seleccionado</span>
@@ -195,6 +233,7 @@ Con qué se conecta:
 
         <p class="bl-help">Regla de seguridad: primero se genera el Excel, después se archiva el período en historial durante 1 mes y recién ahí se oculta de la Base Local activa.</p>
       </div>
+
       <div class="bl-modal-actions">
         <button id="bl-delete-period-cancel" type="button">Cancelar</button>
         <button id="bl-delete-period-confirm" class="bl-btn-danger" type="button" disabled>Sí, borrar período</button>
@@ -202,14 +241,47 @@ Con qué se conecta:
     </div>
   </section>
 
+  <!-- Firebase SDK compat para los módulos antiguos de Base Local -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <script src="../../incorporaciones/sedes/js/firebase-config.js"></script>
+
+  <!-- Configuración Firebase local obligatoria antes de baselocal.firebase.js -->
+  <script>
+    (function configurarFirebaseBaseLocal(window){
+      "use strict";
+
+      window.firebaseConfig = window.firebaseConfig || {
+        apiKey: "AIzaSyCaHf1C0BB0X_H3BDZ1o-UDAsPmLTjsZLA",
+        authDomain: "utet-4387a.firebaseapp.com",
+        projectId: "utet-4387a",
+        storageBucket: "utet-4387a.firebasestorage.app",
+        messagingSenderId: "902848131454",
+        appId: "1:902848131454:web:47f515eb6480834724c32f"
+      };
+
+      window.REQUISITOS_FIREBASE_CONFIG = window.REQUISITOS_FIREBASE_CONFIG || window.firebaseConfig;
+      window.FIREBASE_CONFIG = window.FIREBASE_CONFIG || window.firebaseConfig;
+
+      try{
+        if(window.firebase && typeof window.firebase.firestore === "function" && !window.firebase.apps.length){
+          window.firebase.initializeApp(window.firebaseConfig);
+        }
+
+        if(window.firebase && typeof window.firebase.firestore === "function" && !window.db){
+          window.db = window.firebase.firestore();
+        }
+      }catch(error){
+        console.warn("[BaseLocal] Firebase se inicializará desde baselocal.firebase.js:", error);
+      }
+    })(window);
+  </script>
+
   <script src="../Gestion/Excel/excel-local/excel-local.config.js"></script>
   <script src="../Gestion/Excel/excel-local/excel-local.storage.js"></script>
   <script src="../Gestion/Excel/excel-local.bridge.js"></script>
   <script src="../Gestion/Excel/excel-local.repo.js"></script>
   <script src="../Gestion/Excel/excel-xlsx-loader.js"></script>
+
   <script src="services/bl-campos.js"></script>
   <script src="services/bl-periodos-canon.service.js"></script>
   <script src="services/bl-divisiones.service.js"></script>
@@ -225,6 +297,7 @@ Con qué se conecta:
   <script src="services/bl-borrar-periodo.service.js"></script>
   <script src="services/bl-healthcheck.js"></script>
   <script src="services/bl-selftest.js"></script>
+
   <script src="../BaseLocal2/bl2-config.js"></script>
   <script src="../BaseLocal2/bl2-detect-runtime.js"></script>
   <script src="../BaseLocal2/bl2-legacy-adapter.js"></script>
@@ -242,6 +315,7 @@ Con qué se conecta:
   <script src="../BaseLocal2/sync/bl2-conflicts.js"></script>
   <script src="../BaseLocal2/sync/bl2-firebase-push.js"></script>
   <script src="../BaseLocal2/sync/bl2-firebase-pull.js"></script>
+
   <script src="baselocal.connector.js"></script>
   <script src="baselocal.core.js"></script>
   <script src="baselocal.divisiones-api.patch.js"></script>
