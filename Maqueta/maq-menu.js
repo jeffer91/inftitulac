@@ -4,7 +4,7 @@ Ruta o ubicación: /Requisitos/Maqueta/maq-menu.js
 Función o funciones:
 - Renderizar menú superior fijo.
 - Manejar desplegable de Títulos.
-- Abrir por defecto Excel/Requisito.
+- Abrir por defecto Carga.
 - Mostrar el menú aunque la configuración tarde en responder.
 - Buscar MAQ_CORE y MAQ_CONFIG_SERVICE en tiempo real para evitar que el menú quede vacío.
 Con qué se conecta:
@@ -16,7 +16,7 @@ Con qué se conecta:
   "use strict";
 
   var DEFAULT_ORDER=[
-    {tipo:"modulo",moduloId:"carga_excel",etiqueta:"Requisito"},
+    {tipo:"modulo",moduloId:"carga_excel",etiqueta:"Carga"},
     {tipo:"modulo",moduloId:"baselocal",etiqueta:"Bl"},
     {tipo:"modulo",moduloId:"tabla_principal",etiqueta:"tabla"},
     {tipo:"modulo",moduloId:"ficha_estudiante",etiqueta:"Ficha"},
