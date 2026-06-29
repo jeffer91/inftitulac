@@ -2,11 +2,12 @@
 Nombre completo: bl-estudiantes.service.js
 Ruta o ubicación: /Requisitos/BaseLocal/services/bl-estudiantes.service.js
 Función o funciones:
-- Leer la colección Estudiantes desde Firestore.
+- Leer la colección Estudiantes desde Firestore con modo seguro.
+- Evitar lecturas completas innecesarias usando filtros, límites y lectura incremental.
 - Normalizar estudiantes con cédula como clave principal.
 - Conservar todos los campos originales de Firestore.
 - Fusionar duplicados por cédula sin perder campos útiles.
-- Preparar soporte para documentos antiguos tipo cedula_periodo.
+- Mantener compatibilidad con llamadas antiguas read(db).
 Con qué se conecta:
 - bl-campos.js
 - bl-normalizador.js
@@ -17,11 +18,17 @@ Con qué se conecta:
   "use strict";
 
   var COLLECTION = "Estudiantes";
+  var DEFAULT_PAGE_LIMIT = 500;
+  var MAX_SAFE_LIMIT = 1500;
+  var cache = {key:"", rows:null, at:0};
+  var CACHE_MS = 15000;
 
   function campos(){if(!window.BLCampos){throw new Error("BLCampos no disponible.");}return window.BLCampos;}
   function normalizador(){if(!window.BLNormalizador){throw new Error("BLNormalizador no disponible.");}return window.BLNormalizador;}
   function text(value){return campos().text(value);}
   function clone(value){try{return JSON.parse(JSON.stringify(value == null ? null : value));}catch(error){return value;}}
+  function norm(value){return text(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();}
+  function now(){return new Date().toISOString();}
 
   function safeDate(value){
     try{
@@ -61,9 +68,7 @@ Con qué se conecta:
     return normalizador().normalizeStudent(raw, index || 0, {source:"firebase"});
   }
 
-  async function read(db){
-    if(!db || typeof db.collection !== "function"){throw new Error("Firestore no disponible para leer Estudiantes.");}
-    var snap = await db.collection(COLLECTION).get();
+  function rowsFromSnapshot(snap){
     var rows = [];
     if(snap && typeof snap.forEach === "function"){
       var index = 0;
@@ -71,7 +76,40 @@ Con qué se conecta:
     }else if(snap && Array.isArray(snap.docs)){
       rows = snap.docs.map(function(doc, index){return docToStudent(doc, index);});
     }
-    return dedupeByCedula(rows);
+    return rows;
+  }
+
+  function samePeriod(a, b){
+    if(!text(b)){return true;}
+    try{if(window.BLPeriodosCanon && typeof window.BLPeriodosCanon.samePeriod === "function"){return window.BLPeriodosCanon.samePeriod(a,b);}}catch(error){}
+    return norm(a) === norm(b);
+  }
+
+  function rowPeriod(row){return text(row && (row.periodoId || row.ultimoPeriodoId || row.periodId || row.PeriodoId || row.periodo || row.Periodo || row.periodoLabel));}
+  function rowStatus(row){return campos().normalizeEstado(campos().getValue(row || {}, "estadoMatricula", row && row.estadoMatricula || "ACTIVO"));}
+  function rowSearch(row){
+    row = row || {};
+    var parts = [
+      row.cedula,row.numeroIdentificacion,row.numeroidentificacion,row.Cedula,row.Nombres,row.nombres,row.nombre,row.nombrecarrera,row.nombreCarrera,row.NombreCarrera,row.carrera,row.Carrera,row.Sede,row.sede,row.CorreoPersonal,row.CorreoInstitucional,row.Celular,row.periodoId,row.periodoLabel,row.division
+    ];
+    if(Array.isArray(row.divisiones)){parts.push(row.divisiones.join(" "));}
+    return norm(parts.join(" "));
+  }
+
+  function localFilter(rows, options){
+    options = options || {};
+    var periodId = text(options.periodId || options.periodoId || "");
+    var status = text(options.estadoMatricula == null ? options.status || "" : options.estadoMatricula);
+    var search = norm(options.search || options.q || "");
+    var filtered = (rows || []).filter(function(row){
+      if(periodId && !samePeriod(rowPeriod(row), periodId)){return false;}
+      if(status && rowStatus(row) !== status){return false;}
+      if(search && rowSearch(row).indexOf(search) < 0){return false;}
+      return true;
+    });
+    var offset = Math.max(0, Number(options.offset || 0) || 0);
+    var limit = Math.max(0, Number(options.limit || 0) || 0);
+    return limit ? filtered.slice(offset, offset + limit) : filtered;
   }
 
   function updatedTime(row){
@@ -113,7 +151,6 @@ Con qué se conecta:
     var incomingNewer = updatedTime(next) >= updatedTime(base);
     var out = Object.assign({}, base);
     Object.keys(next).forEach(function(key){out[key] = mergeValue(out[key], next[key], incomingNewer);});
-
     var cedula = text(base.cedula || next.cedula || base.numeroIdentificacion || next.numeroIdentificacion);
     if(cedula){out.cedula = cedula;out.numeroIdentificacion = text(out.numeroIdentificacion || cedula);}
     out.divisiones = normalizeDivisiones([].concat(normalizeDivisiones(base.divisiones || base.division), normalizeDivisiones(next.divisiones || next.division)));
@@ -137,13 +174,77 @@ Con qué se conecta:
 
   function normalizeLocalList(students){return dedupeByCedula(students || []);}
 
+  function cacheKey(options){
+    options = options || {};
+    return JSON.stringify({periodId:text(options.periodId||options.periodoId||""),status:text(options.estadoMatricula||options.status||""),search:norm(options.search||options.q||""),limit:Number(options.limit||0)||0,offset:Number(options.offset||0)||0,since:text(options.updatedSince||options.since||"")});
+  }
+
+  function shouldUseCache(options){return !options || options.cache !== false;}
+  function fromCache(key){if(cache.rows && cache.key === key && Date.now() - cache.at < CACHE_MS){return clone(cache.rows);}return null;}
+  function saveCache(key, rows){cache = {key:key, rows:clone(rows || []), at:Date.now()};return rows;}
+  function clearCache(){cache = {key:"", rows:null, at:0};}
+
+  function applyQuery(ref, options){
+    var query = ref;
+    var usedServer = false;
+    var periodId = text(options.periodId || options.periodoId || "");
+    var status = text(options.estadoMatricula == null ? options.status || "" : options.estadoMatricula);
+    var since = text(options.updatedSince || options.since || "");
+
+    if(periodId){query = query.where("periodoId", "==", periodId);usedServer = true;}
+    if(status){query = query.where("estadoMatricula", "==", status);usedServer = true;}
+    if(since){query = query.where("updatedAt", ">", since);usedServer = true;}
+    if(since && typeof query.orderBy === "function"){query = query.orderBy("updatedAt", "asc");}
+    var limit = Math.max(0, Math.min(MAX_SAFE_LIMIT, Number(options.remoteLimit || options.limit || 0) || 0));
+    if(limit && typeof query.limit === "function"){query = query.limit(limit);usedServer = true;}
+    return {query:query, usedServer:usedServer};
+  }
+
+  async function read(db, options){
+    options = options || {};
+    if(!db || typeof db.collection !== "function"){throw new Error("Firestore no disponible para leer Estudiantes.");}
+    var key = cacheKey(options);
+    if(shouldUseCache(options)){
+      var cached = fromCache(key);
+      if(cached){return cached;}
+    }
+
+    var ref = db.collection(COLLECTION);
+    var prepared = applyQuery(ref, options);
+    var rows = [];
+
+    try{
+      rows = rowsFromSnapshot(await prepared.query.get());
+    }catch(error){
+      if(options.noFallbackFull === true){throw error;}
+      console.warn("[BLEstudiantesService] Consulta filtrada falló. Se usará lectura limitada de respaldo.", error);
+      var safeLimit = Math.max(1, Math.min(MAX_SAFE_LIMIT, Number(options.fallbackLimit || options.limit || DEFAULT_PAGE_LIMIT) || DEFAULT_PAGE_LIMIT));
+      var fallbackQuery = typeof ref.limit === "function" ? ref.limit(safeLimit) : ref;
+      rows = rowsFromSnapshot(await fallbackQuery.get());
+      rows = localFilter(rows, options);
+    }
+
+    rows = dedupeByCedula(rows);
+    if(options.search || options.q || options.offset){rows = localFilter(rows, options);}
+    return saveCache(key, rows);
+  }
+
+  async function readPage(db, options){
+    options = Object.assign({}, options || {}, {limit:options && options.limit ? options.limit : 100});
+    var rows = await read(db, options);
+    return {rows:rows,total:rows.length,limit:Number(options.limit || rows.length || 0),offset:Number(options.offset || 0),readAt:now()};
+  }
+
   window.BLEstudiantesService = {
     collection:COLLECTION,
     read:read,
+    readPage:readPage,
     dedupeByCedula:dedupeByCedula,
     normalizeLocalList:normalizeLocalList,
     mergeStudents:mergeStudents,
     cedulaFromDocId:cedulaFromDocId,
-    normalizeStudent:function(row, index, options){return normalizador().normalizeStudent(row, index, options || {});}
+    clearCache:clearCache,
+    normalizeStudent:function(row, index, options){return normalizador().normalizeStudent(row, index, options || {});},
+    helpers:{localFilter:localFilter,rowPeriod:rowPeriod,rowStatus:rowStatus,rowSearch:rowSearch}
   };
 })(window);
