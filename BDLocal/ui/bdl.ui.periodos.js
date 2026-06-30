@@ -32,7 +32,7 @@
     H.one('#bdlPeriodoAnioFin').value = row.anioFin || row.anioInicio || new Date().getFullYear();
     editingId = row.periodoId || "";
     var label = H.one('#bdlPeriodoEditLabel');
-    if(label){ label.textContent = editingId ? 'Editando: ' + editingId : 'Nuevo período'; }
+    if(label){ label.textContent = editingId ? 'Editando: ' + (row.periodoLabel || row.periodoId) : 'Nuevo período'; }
   }
 
   function reset(){
@@ -43,23 +43,9 @@
     if(label){ label.textContent = 'Nuevo período'; }
   }
 
-  function renderList(rows){
+  function renderList(){
     var box = H.one('#bdlPeriodosList');
-    if(!box){ return; }
-    if(!rows.length){ box.innerHTML = '<div class="bdl-empty">No hay períodos creados.</div>'; return; }
-    box.innerHTML = rows.map(function(p){
-      return '<div class="bdl-period-item"><strong>'+H.esc(p.periodoLabel || p.periodoId)+'</strong><div><button class="bdl-btn ghost" data-period-edit="'+H.esc(p.periodoId)+'">Editar</button><button class="bdl-btn ghost" data-period-delete="'+H.esc(p.periodoId)+'">Borrar</button></div></div>';
-    }).join("");
-    Array.prototype.slice.call(box.querySelectorAll('[data-period-edit]')).forEach(function(btn){
-      btn.addEventListener('click', function(){
-        var id = btn.getAttribute('data-period-edit');
-        var row = rows.filter(function(p){ return p.periodoId === id; })[0];
-        setForm(row);
-      });
-    });
-    Array.prototype.slice.call(box.querySelectorAll('[data-period-delete]')).forEach(function(btn){
-      btn.addEventListener('click', function(){ borrar(btn.getAttribute('data-period-delete')); });
-    });
+    if(box){ box.innerHTML = ''; }
   }
 
   function fillSelect(rows){
@@ -104,5 +90,5 @@
     });
   }
 
-  window.BDLUIPeriodos = { load:load, save:save, reset:reset, borrar:borrar, fillMonths:fillMonths };
+  window.BDLUIPeriodos = { load:load, save:save, reset:reset, borrar:borrar, fillMonths:fillMonths, setForm:setForm };
 })(window);
