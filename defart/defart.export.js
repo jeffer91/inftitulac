@@ -3,7 +3,7 @@ Nombre completo: defart.export.js
 Ruta o ubicación: /Requisitos/defart/defart.export.js
 Función o funciones:
 - Descargar Excel de la tabla visible de Defensas.
-- Exportar solo columnas visibles: Cédula, Nombre, Carrera, N-ART, N-DEF, N-FIN.
+- Exportar columnas finales: Cédula, Nombre, Carrera, N-ART, N-DEF, N-FIN y Estado.
 - Nombrar el archivo con período, fecha y hora.
 - Mantener exportación compatible aunque no cargue la librería XLSX.
 Con qué se conecta:
@@ -12,7 +12,7 @@ Con qué se conecta:
 (function(window){
   "use strict";
 
-  var HEADERS = ["Cédula", "Nombre", "Carrera", "N-ART", "N-DEF", "N-FIN"];
+  var HEADERS = ["Cédula", "Nombre", "Carrera", "N-ART", "N-DEF", "N-FIN", "Estado"];
 
   function text(value){
     return String(value == null ? "" : value).trim();
@@ -48,6 +48,13 @@ Con qué se conecta:
     return Math.round(num * 100) / 100;
   }
 
+  function normalizeEstado(value){
+    value = text(value);
+    if(value === "Completo"){ return "Aprobado"; }
+    if(value === "Sin requisitos"){ return "Falta requisitos"; }
+    return value;
+  }
+
   function rowsToVisibleExport(rows){
     return (rows || []).map(function(row){
       return {
@@ -56,7 +63,8 @@ Con qué se conecta:
         "Carrera":text(row._carrera),
         "N-ART":formatNote(row._nart),
         "N-DEF":formatNote(row._ndef),
-        "N-FIN":formatNote(row._nfin)
+        "N-FIN":formatNote(row._nfin),
+        "Estado":normalizeEstado(row._estadoDefensa)
       };
     });
   }
@@ -69,7 +77,7 @@ Con qué se conecta:
     document.body.appendChild(link);
     link.click();
     link.remove();
-    setTimeout(function(){URL.revokeObjectURL(link.href);}, 1000);
+    setTimeout(function(){ URL.revokeObjectURL(link.href); }, 1000);
   }
 
   function escapeHtml(value){
@@ -88,12 +96,13 @@ Con qué se conecta:
       'th{background:#1d4ed8;color:#ffffff;font-weight:bold;border:1px solid #94a3b8;padding:6px;text-align:left}' +
       'td{border:1px solid #cbd5e1;padding:5px;vertical-align:top}' +
       'td.num{text-align:center;mso-number-format:"0.00"}' +
+      'td.estado{font-weight:bold}' +
       '</style></head><body><table><thead><tr>' +
-      HEADERS.map(function(header){return '<th>' + escapeHtml(header) + '</th>';}).join("") +
+      HEADERS.map(function(header){ return '<th>' + escapeHtml(header) + '</th>'; }).join("") +
       '</tr></thead><tbody>' +
       exported.map(function(row){
         return '<tr>' + HEADERS.map(function(header){
-          var cls = header.indexOf("N-") === 0 ? ' class="num"' : '';
+          var cls = header.indexOf("N-") === 0 ? ' class="num"' : (header === "Estado" ? ' class="estado"' : '');
           return '<td' + cls + '>' + escapeHtml(row[header]) + '</td>';
         }).join("") + '</tr>';
       }).join("") +
@@ -103,21 +112,11 @@ Con qué se conecta:
     return {ok:true, fallback:"xls-html", fileName:xlsName, rows:exported.length};
   }
 
-  function exportExcel(rows, context){
-    context = context || {};
-    var period = safeFile(context.periodId || context.periodLabel || "TODOS");
-    var fileName = period + "_" + stamp() + ".xlsx";
-    var data = rowsToVisibleExport(rows || []);
-
-    if(!window.XLSX || !window.XLSX.utils){
-      return excelHtmlFallback(rows || [], fileName);
-    }
-
-    var worksheet = window.XLSX.utils.json_to_sheet(data, {header:HEADERS});
-    worksheet["!cols"] = [{wch:16}, {wch:38}, {wch:40}, {wch:10}, {wch:10}, {wch:10}];
-    worksheet["!autofilter"] = {ref:"A1:F" + Math.max(1, data.length + 1)};
-
-    var range = window.XLSX.utils.decode_range(worksheet["!ref"] || "A1:F1");
+  function styleSheet(worksheet, dataLength){
+    if(!worksheet){ return; }
+    worksheet["!cols"] = [{wch:16}, {wch:38}, {wch:42}, {wch:10}, {wch:10}, {wch:10}, {wch:18}];
+    worksheet["!autofilter"] = {ref:"A1:G" + Math.max(1, dataLength + 1)};
+    var range = window.XLSX.utils.decode_range(worksheet["!ref"] || "A1:G1");
     for(var row = 1; row <= range.e.r; row += 1){
       [3,4,5].forEach(function(col){
         var address = window.XLSX.utils.encode_cell({r:row, c:col});
@@ -127,6 +126,20 @@ Con qué se conecta:
         }
       });
     }
+  }
+
+  function exportExcel(rows, context){
+    context = context || {};
+    var period = safeFile(context.periodId || context.periodLabel || "TODOS");
+    var fileName = "Defensas_" + period + "_" + stamp() + ".xlsx";
+    var data = rowsToVisibleExport(rows || []);
+
+    if(!window.XLSX || !window.XLSX.utils){
+      return excelHtmlFallback(rows || [], fileName);
+    }
+
+    var worksheet = window.XLSX.utils.json_to_sheet(data, {header:HEADERS});
+    styleSheet(worksheet, data.length);
 
     var workbook = window.XLSX.utils.book_new();
     workbook.Props = {Title:"Defensas", Subject:"Notas de defensas", Author:"Requisitos", CreatedDate:new Date()};
@@ -135,5 +148,8 @@ Con qué se conecta:
     return {ok:true, fileName:fileName, rows:data.length};
   }
 
-  window.DefartExport = {exportExcel:exportExcel, rowsToVisibleExport:rowsToVisibleExport};
+  window.DefartExport = {
+    exportExcel:exportExcel,
+    rowsToVisibleExport:rowsToVisibleExport
+  };
 })(window);
