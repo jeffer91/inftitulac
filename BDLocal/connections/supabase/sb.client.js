@@ -3,7 +3,7 @@ Nombre completo: sb.client.js
 Ruta: /BDLocal/connections/supabase/sb.client.js
 Función:
 - Cliente REST mínimo para Supabase usando URL y anon key.
-- No usa service_role ni claves privadas.
+- Respeta activado/pausado desde Ajustes.
 ========================================================= */
 (function(window){
   "use strict";
@@ -11,7 +11,8 @@ Función:
   function config(){
     if(!window.BDLSupabaseConfig){ throw new Error("BDLSupabaseConfig no está disponible."); }
     var cfg = window.BDLSupabaseConfig.read();
-    if(!cfg || !cfg.url || !cfg.anonKey){ throw new Error("Supabase no configurado. Falta URL o anonKey."); }
+    if(!cfg || cfg.enabled !== true){ throw new Error("Supabase está pausado en Ajustes."); }
+    if(!cfg.url || !cfg.anonKey){ throw new Error("Supabase no configurado. Falta URL o anonKey."); }
     return cfg;
   }
 
@@ -51,11 +52,7 @@ Función:
   function upsert(table, rows){
     if(!Array.isArray(rows)){ rows = [rows]; }
     var url = window.BDLSupabaseConfig.restUrl(table);
-    return request(url, {
-      method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-      body: JSON.stringify(rows)
-    });
+    return request(url, { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify(rows) });
   }
 
   function list(table, query){
@@ -63,10 +60,5 @@ Función:
     return request(url, { method: "GET" });
   }
 
-  window.BDLSupabaseClient = {
-    config: config,
-    request: request,
-    upsert: upsert,
-    list: list
-  };
+  window.BDLSupabaseClient = { config: config, request: request, upsert: upsert, list: list };
 })(window);
