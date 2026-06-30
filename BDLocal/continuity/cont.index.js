@@ -4,12 +4,12 @@ Ruta: /BDLocal/continuity/cont.index.js
 Función:
 - Punto de entrada del motor automático de continuidad.
 - Expone estado, creación de eventos, verificación y protección secundaria.
-- No reemplaza todavía la sincronización principal actual.
+- Mantiene compatibilidad con la sincronización principal actual.
 ========================================================= */
 (function(window){
   "use strict";
 
-  var VERSION = "0.3.0-supabase";
+  var VERSION = "0.4.0-update";
 
   function status(){
     var guardian = window.BDLContGuardian && typeof window.BDLContGuardian.status === "function" ? window.BDLContGuardian.status() : { mode:"preparado", activeTarget:"firebase" };
@@ -22,6 +22,13 @@ Función:
       guardian: guardian,
       health: health,
       eventsCount: events.length,
+      modules: {
+        firebase: !!window.BDLConnFirebase,
+        supabase: !!window.BDLConnSupabase,
+        excel: !!window.BDLConnExcel,
+        googleSheets: !!window.BDLConnGoogleSheets,
+        manualEvents: !!window.BDLManualEvents
+      },
       updatedAt: new Date().toISOString()
     };
   }
