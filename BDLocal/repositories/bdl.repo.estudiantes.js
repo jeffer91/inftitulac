@@ -12,6 +12,17 @@
     throw new Error("BDLRepoEstudiantes requiere normalizadores completos.");
   }
 
+  function pageOptions(options){
+    options = options || {};
+    var page = Math.max(1, Number(options.page || 1));
+    var limit = Math.max(1, Number(options.limit || 100));
+    return Object.assign({}, options, {
+      page: page,
+      limit: limit,
+      offset: options.offset == null ? (page - 1) * limit : Number(options.offset || 0)
+    });
+  }
+
   function guardarRegistro(row, periodoInfo){
     var normalized = E.normalize(row, periodoInfo);
     var id = normalized.resumen.idEstudiantePeriodo;
@@ -54,11 +65,18 @@
   }
 
   function listarResumen(periodoId, options){
-    options = options || {};
+    options = pageOptions(options || {});
     if(periodoId){
       return B.byIndex(B.stores.estudiantesResumen, "by_periodoId", periodoId, options);
     }
     return B.list(B.stores.estudiantesResumen, options);
+  }
+
+  function contarPorPeriodo(periodoId){
+    if(!periodoId){ return Promise.resolve(0); }
+    return B.byIndex(B.stores.estudiantesResumen, "by_periodoId", periodoId, { limit: 0 }).then(function(rows){
+      return rows.length;
+    });
   }
 
   function obtenerResumen(idEstudiantePeriodo){
@@ -87,6 +105,7 @@
     guardarRegistro: guardarRegistro,
     guardarMuchos: guardarMuchos,
     listarResumen: listarResumen,
+    contarPorPeriodo: contarPorPeriodo,
     obtenerResumen: obtenerResumen,
     obtenerDetalle: obtenerDetalle
   };
