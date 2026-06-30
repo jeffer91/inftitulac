@@ -77,8 +77,8 @@
     <div class="bl-modal-card bl-modal-wide">
       <header>
         <div>
-          <h2>Depuración segura</h2>
-          <p>Analiza, selecciona todo o solo lo necesario, aplica y descarga respaldo Excel.</p>
+          <h2>Depuración inteligente</h2>
+          <p>Analiza, selecciona todo o solo lo necesario, corrige y descarga respaldo Excel.</p>
         </div>
         <button id="blPurgeClose" class="bl-btn light">Cerrar</button>
       </header>
@@ -98,12 +98,16 @@
           <button id="blPurgeAnalyze" class="bl-btn primary">Analizar incongruencias</button>
           <button id="blPurgeSelectAll" class="bl-btn success" disabled>Seleccionar todo</button>
           <button id="blPurgeClearAll" class="bl-btn light" disabled>Quitar selección</button>
-          <button id="blPurgeApply" class="bl-btn danger" disabled>Aplicar aprobados</button>
+          <button id="blPurgeApply" class="bl-btn danger" disabled>Corregir seleccionados</button>
           <button id="blPurgeDownloadExcel" class="bl-btn warning" disabled>Descargar respaldo Excel</button>
           <button id="blPurgeCopy" class="bl-btn light">Copiar reporte</button>
         </div>
+        <div class="bl-progress" id="blPurgeProgressBox" hidden>
+          <div class="bl-progress-head"><strong id="blPurgeProgressText">Preparando...</strong><span id="blPurgeProgressPct">0%</span></div>
+          <div class="bl-progress-track"><div id="blPurgeProgressBar" class="bl-progress-bar" style="width:0%"></div></div>
+        </div>
         <div class="bl-purge-warning">
-          Regla de seguridad: para cédulas duplicadas se conserva el registro más reciente. En teléfonos duplicados no se fusiona ni se borra; se marca conflicto.
+          Regla inteligente: en cédulas duplicadas se conserva el registro más reciente y se completan campos vacíos con datos de los registros antiguos. En teléfonos duplicados no se fusiona ni se borra; se marca conflicto.
         </div>
         <div id="blPurgeResults" class="bl-purge-results"><div class="bl-empty">Aún no se ha analizado.</div></div>
       </div>
