@@ -5,6 +5,7 @@ Función:
 - Sincronizar Google Sheets en segundo plano de forma lenta e incremental.
 - Escuchar cambios importantes de BDLocal y encolarlos.
 - Enviar pocos registros por lote para no saturar Apps Script.
+- Usar POST simple/no-cors para evitar bloqueo de CORS en Apps Script.
 ========================================================= */
 (function(window){
   "use strict";
@@ -16,7 +17,6 @@ Función:
   var lastResult = null;
 
   function now(){ return new Date().toISOString(); }
-  function txt(value){ return String(value == null ? "" : value).trim(); }
   function queue(){ return window.BDLGoogleSheetsQueue; }
   function cfg(){ return window.BDLGoogleSheetsConfig; }
 
@@ -41,24 +41,25 @@ Función:
     });
   }
 
+  function payload(rows){
+    return JSON.stringify({
+      source: "Requisitos BL incremental",
+      createdAt: now(),
+      mode: "incremental",
+      rows: rows
+    });
+  }
+
   function sendRows(rows, ids){
     var url = cfg() && cfg().webAppUrl ? cfg().webAppUrl() : "";
     if(!url){ return Promise.reject(new Error("Google Sheets no tiene Web App URL configurada.")); }
     return fetch(url, {
       method: "POST",
-      mode: "cors",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({
-        source: "Requisitos BL incremental",
-        createdAt: now(),
-        mode: "incremental",
-        rows: rows
-      })
-    }).then(function(res){
-      return res.text().then(function(body){
-        if(!res.ok){ throw new Error(body || ("Google Sheets error " + res.status)); }
-        return { ok:true, rows:rows.length, ids:ids, response:body, at:now() };
-      });
+      mode: "no-cors",
+      headers: { "Content-Type":"text/plain;charset=utf-8" },
+      body: payload(rows)
+    }).then(function(){
+      return { ok:true, opaque:true, rows:rows.length, ids:ids, response:"POST enviado a Apps Script", at:now() };
     });
   }
 
