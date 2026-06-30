@@ -16,6 +16,7 @@
     "normalizers/bdl.norm.text.js",
     "normalizers/bdl.norm.periodo.js",
     "normalizers/bdl.norm.requisito.js",
+    "normalizers/bdl.norm.carrera.js",
     "normalizers/bdl.norm.estudiante.js",
     "normalizers/bdl.norm.nota.js",
     "normalizers/bdl.norm.division.js",
