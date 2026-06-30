@@ -33,15 +33,19 @@
 
   function loadInitialData(){
     var periodoId = H.val('#bdlPeriodoSelect') || (window.BDLState && window.BDLState.getPeriodoActivo ? window.BDLState.getPeriodoActivo() : '');
-    if(!periodoId){ H.notify('Cargar listo. Cree o seleccione un período.'); return Promise.resolve(); }
+    if(!periodoId){
+      if(window.BDLUIDashboard){ window.BDLUIDashboard.renderStats({}); }
+      H.notify('Seleccione o cree un período.');
+      return Promise.resolve();
+    }
     var tasks = [];
     if(window.BDLUIDashboard){ tasks.push(window.BDLUIDashboard.loadDashboard(periodoId)); }
     if(window.BDLUIEstudiantes){ tasks.push(window.BDLUIEstudiantes.load({ periodoId:periodoId, page:1 })); }
-    return Promise.all(tasks).then(function(){ H.notify('Cargar listo.'); });
+    return Promise.all(tasks).then(function(){ H.notify('Listo.'); });
   }
 
   function boot(){
-    H.notify('Iniciando carga...');
+    H.notify('Cargando...');
     var start = window.BDLocal && window.BDLocal.boot ? window.BDLocal.boot() : Promise.resolve();
     start.then(function(){
       bind();
