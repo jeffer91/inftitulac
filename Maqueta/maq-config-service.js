@@ -2,9 +2,9 @@
 Nombre completo: maq-config-service.js
 Ruta o ubicación: /Requisitos/Maqueta/maq-config-service.js
 Función o funciones:
-- Construir el menú superior de Requisitos en el orden definido por Jeff.
-- Crear grupo Titulos con submenús funcionales: Estudiante, Administrador y Coordinador.
+- Construir el menú superior de Requisitos en el orden definido.
 - Mantener Carga como pantalla inicial.
+- No mostrar Base Local como pestaña separada porque su funcionalidad está dentro de Carga.
 Con qué se conecta:
 - maq-menu.js
 - maq-modulos-registry.js
@@ -13,7 +13,6 @@ Con qué se conecta:
   "use strict";
   var ORDER=[
     {tipo:"modulo",moduloId:"carga_excel",etiqueta:"Carga"},
-    {tipo:"modulo",moduloId:"baselocal",etiqueta:"Bl"},
     {tipo:"modulo",moduloId:"tabla_principal",etiqueta:"tabla"},
     {tipo:"modulo",moduloId:"ficha_estudiante",etiqueta:"Ficha"},
     {tipo:"modulo",moduloId:"stat_main",etiqueta:"Stats"},
