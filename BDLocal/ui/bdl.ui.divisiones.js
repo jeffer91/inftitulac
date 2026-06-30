@@ -102,8 +102,7 @@
       close();
       var tasks = [];
       if(window.BDLUIDashboard){ tasks.push(window.BDLUIDashboard.loadDashboard(state.periodoId)); }
-      if(window.BDLUIEstudiantes){ tasks.push(window.BDLUIEstudiantes.load({ periodoId:state.periodoId, page:1 })); }
-      return Promise.all(tasks).then(function(){ H.notify('Divisiones guardadas. Estudiantes actualizados: ' + (result.updated || 0)); });
+      return Promise.all(tasks).then(function(){ H.notify('Divisiones guardadas. Registros actualizados: ' + (result.updated || 0)); });
     }).catch(function(error){ H.notify(error && error.message ? error.message : String(error), 'error'); });
   }
 
@@ -121,7 +120,7 @@
       state.carreras = parts[1] || [];
       if(modal){ modal.classList.add('open'); }
       renderCarreras();
-    });
+    }).catch(function(error){ H.notify(error && error.message ? error.message : String(error), 'error'); });
   }
 
   function close(){ var modal = H.one('#bdlDivModal'); if(modal){ modal.classList.remove('open'); } }
