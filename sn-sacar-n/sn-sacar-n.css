@@ -5,7 +5,7 @@ Modulo: Sacar N
 Funcion o funciones:
 - Dar estilo visual completo a la pantalla Sacar N.
 - Mantener diseno claro, legible y compatible con iframe de Maqueta.
-- Preparar tabla, panel de novedades, tarjetas y estados visuales.
+- Preparar tabla, panel de novedades, tarjetas, resumen final y estados visuales.
 Con que se conecta:
 - sn-sacar-n.html
 ========================================================= */
@@ -34,9 +34,10 @@ body{margin:0;background:var(--sn-bg);color:var(--sn-text);font-family:Arial, He
 .sn-pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--sn-border);background:var(--sn-card);color:var(--sn-muted);border-radius:999px;padding:8px 12px;font-size:13px;white-space:nowrap}
 .sn-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
 .sn-card{background:var(--sn-card);border:1px solid var(--sn-border);border-radius:16px;box-shadow:var(--sn-shadow);padding:14px}
-.sn-main-card,.sn-progress-card{margin-bottom:14px}
+.sn-main-card,.sn-progress-card,.sn-report-card{margin-bottom:14px}
 .sn-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
 .sn-card h2{margin:0 0 8px;font-size:17px}
+.sn-card h3{margin:0;font-size:15px}
 .sn-card p{margin:0;color:var(--sn-muted);font-size:13px;line-height:1.45}
 .sn-info-card strong{display:block;margin-top:6px;font-size:13px;word-break:break-all}
 .sn-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -57,13 +58,24 @@ body{margin:0;background:var(--sn-bg);color:var(--sn-text);font-family:Arial, He
 .sn-stat{background:var(--sn-card);border:1px solid var(--sn-border);border-radius:14px;padding:12px;box-shadow:0 8px 18px rgba(15,23,42,.05)}
 .sn-stat strong{display:block;font-size:22px}
 .sn-stat span{display:block;color:var(--sn-muted);font-size:12px;margin-top:3px}
+.sn-report-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.sn-report-item{border:1px solid var(--sn-border);border-radius:14px;background:#fff;padding:12px;min-height:96px}
+.sn-report-item strong{display:block;font-size:24px;color:var(--sn-text);line-height:1}
+.sn-report-item span{display:block;margin-top:7px;font-size:13px;font-weight:700;color:#334155}
+.sn-report-item small{display:block;margin-top:5px;color:var(--sn-muted);font-size:11px;line-height:1.35}
+.sn-report-subhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 0 10px}
+.sn-mini-table-wrap{overflow:auto;border:1px solid var(--sn-border);border-radius:14px;background:#fff}
+.sn-mini-table{width:100%;border-collapse:collapse;min-width:760px}
+.sn-mini-table th,.sn-mini-table td{border-bottom:1px solid var(--sn-border);padding:10px;text-align:left;font-size:12px;vertical-align:top}
+.sn-mini-table th{background:#f1f5f9;color:#334155;text-transform:uppercase;letter-spacing:.02em}
+.sn-mini-note{padding:10px;color:var(--sn-muted);font-size:12px;background:#f8fafc}
 .sn-layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:14px;align-items:start}
 .sn-table-wrap{overflow:auto;border:1px solid var(--sn-border);border-radius:14px;background:#fff}
 .sn-table{width:100%;border-collapse:collapse;min-width:1180px}
 .sn-table th,.sn-table td{border-bottom:1px solid var(--sn-border);padding:10px;text-align:left;font-size:13px;vertical-align:top}
 .sn-table th{position:sticky;top:0;background:#f1f5f9;color:#334155;font-size:12px;text-transform:uppercase;letter-spacing:.02em;z-index:1}
 .sn-empty{text-align:center!important;color:var(--sn-muted);padding:28px!important}
-.sn-empty-box{border:1px dashed var(--sn-border);border-radius:14px;padding:18px;color:var(--sn-muted);font-size:13px;text-align:center;background:#fff}
+.sn-empty-box{border:1px dashed var(--sn-border);border-radius:14px;padding:18px;color:var(--sn-muted);font-size:13px;text-align:center;background:#fff;width:100%}
 .sn-alert{border:1px solid var(--sn-border);border-radius:14px;padding:12px;background:var(--sn-soft);color:#1e3a8a;font-size:13px;line-height:1.45}
 .sn-alert.warning{background:var(--sn-warning);color:#9a3412}
 .sn-alert.danger{background:var(--sn-danger);color:#991b1b}
@@ -75,7 +87,7 @@ body{margin:0;background:var(--sn-bg);color:var(--sn-text);font-family:Arial, He
 .sn-status.info{background:var(--sn-info);color:#3730a3;border-color:#c7d2fe}
 .sn-status.neutral{background:#f8fafc;color:#475569}
 .sn-steps{margin:0 0 12px 18px;padding:0;color:var(--sn-text);font-size:13px;line-height:1.8}
-.sn-panel{position:fixed;top:0;right:0;width:min(460px,92vw);height:100vh;background:#fff;border-left:1px solid var(--sn-border);box-shadow:-18px 0 38px rgba(15,23,42,.18);transform:translateX(105%);transition:transform .2s ease;z-index:20;display:flex;flex-direction:column}
+.sn-panel{position:fixed;top:0;right:0;width:min(520px,92vw);height:100vh;background:#fff;border-left:1px solid var(--sn-border);box-shadow:-18px 0 38px rgba(15,23,42,.18);transform:translateX(105%);transition:transform .2s ease;z-index:20;display:flex;flex-direction:column}
 .sn-panel.sn-panel-open{transform:translateX(0)}
 .sn-panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:16px;border-bottom:1px solid var(--sn-border)}
 .sn-panel-head h2{margin:0 0 4px;font-size:18px}
@@ -86,5 +98,5 @@ body{margin:0;background:var(--sn-bg);color:var(--sn-text);font-family:Arial, He
 .sn-novedad span{font-size:11px;color:var(--sn-muted)}
 .sn-novedad p{margin:4px 0 0;color:var(--sn-muted);font-size:13px;line-height:1.4}
 .sn-footer{margin-top:12px;color:var(--sn-muted);font-size:12px}
-@media(max-width:1120px){.sn-layout{grid-template-columns:1fr}.sn-side-card{order:-1}.sn-grid,.sn-filters,.sn-stats{grid-template-columns:repeat(2,minmax(0,1fr));}}
-@media(max-width:620px){.sn-shell{padding:12px}.sn-header{flex-direction:column}.sn-header-actions{justify-content:flex-start}.sn-grid,.sn-filters,.sn-stats{grid-template-columns:1fr}.sn-card-head{flex-direction:column}.sn-actions .sn-btn{width:100%}}
+@media(max-width:1120px){.sn-layout{grid-template-columns:1fr}.sn-side-card{order:-1}.sn-grid,.sn-filters,.sn-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.sn-report-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:620px){.sn-shell{padding:12px}.sn-header{flex-direction:column}.sn-header-actions{justify-content:flex-start}.sn-grid,.sn-filters,.sn-stats,.sn-report-grid{grid-template-columns:1fr}.sn-card-head{flex-direction:column}.sn-actions .sn-btn{width:100%}}
