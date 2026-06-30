@@ -3,9 +3,8 @@ Nombre completo: maq-modulos-registry.js
 Ruta o ubicación: /Requisitos/Maqueta/maq-modulos-registry.js
 Función o funciones:
 - Definir rutas internas reales del menú de Requisitos.
-- Enviar Carga y Base Local a la nueva pantalla BDLocal.
-- Mantener pantallas históricas activas mediante adaptadores de compatibilidad.
-- Evitar rutas rotas hacia BaseLocal, BaseLocal2 y Gestion/Excel.
+- Enviar Carga a la pantalla funcional BDLocal/bdlocal.html.
+- Redirigir cualquier llamada antigua a Base Local hacia Carga.
 Con qué se conecta:
 - maq-config-service.js
 - maq-core.js
@@ -16,7 +15,6 @@ Con qué se conecta:
   var bdlocal=base+"/BDLocal/bdlocal.html";
   var modules={
     carga_excel:{id:"carga_excel",nombre:"Carga",ruta:bdlocal,estado:"activo"},
-    baselocal:{id:"baselocal",nombre:"Base Local",ruta:bdlocal,estado:"activo"},
     tabla_principal:{id:"tabla_principal",nombre:"Tabla",ruta:base+"/Gestion/Tabla/tabla.html",estado:"activo"},
     ficha_estudiante:{id:"ficha_estudiante",nombre:"Ficha",ruta:base+"/Ficha/ficha.html",estado:"activo"},
     stat_main:{id:"stat_main",nombre:"Estadísticas",ruta:base+"/Stats/stats.html",estado:"activo"},
@@ -28,7 +26,11 @@ Con qué se conecta:
     titulos_coordinador:{id:"titulos_coordinador",nombre:"Títulos - Coordinador",ruta:base+"/Titulos/public/ta-titulo-articulo-coordinador.html",estado:"activo"},
     titulacion:{id:"titulacion",nombre:"Infor",ruta:base+"/Infor/frontend/titulacion.html",estado:"activo"}
   };
-  function buscarPorId(id){return modules[String(id||"").trim()]||null;}
+  function buscarPorId(id){
+    id=String(id||"").trim();
+    if(id==="baselocal"||id==="bl"){ id="carga_excel"; }
+    return modules[id]||null;
+  }
   function listar(){return Object.keys(modules).map(function(k){return modules[k];});}
   window.MAQ_MODULOS_REGISTRY={buscarPorId:buscarPorId,listar:listar};
 })(window);
