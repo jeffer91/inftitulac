@@ -13,6 +13,7 @@ Con qué se conecta:
 - coo.data.js
 - coo.report.js
 - coo.render.js
+- coo.mail.js
 - coordi.core.js
 - coordi.export.js
 - coordi.app.js
@@ -84,7 +85,7 @@ Con qué se conecta:
         </div>
       </div>
       <div class="global-actions">
-        <button id="coo-global-mail" type="button" class="btn-primary" disabled>Outlook global</button>
+        <button id="coo-global-mail" type="button" class="btn-primary" data-action="mail-global" disabled>Outlook global</button>
         <button id="coo-global-whatsapp" type="button" class="btn-secondary" disabled>WhatsApp global</button>
         <button id="coo-global-preview" type="button" class="btn-secondary" data-action="preview-global" disabled>Vista previa</button>
       </div>
@@ -171,8 +172,8 @@ Con qué se conecta:
         </header>
         <div id="coordi-preview-body" class="coordi-preview-body"></div>
         <footer>
-          <button type="button" class="btn-primary" disabled>Abrir en Outlook</button>
-          <button type="button" class="btn-secondary" disabled>Copiar HTML</button>
+          <button id="coordi-preview-open-mail" type="button" class="btn-primary">Abrir en Outlook</button>
+          <button id="coordi-preview-copy-html" type="button" class="btn-secondary">Copiar HTML</button>
         </footer>
       </div>
     </section>
@@ -183,6 +184,7 @@ Con qué se conecta:
   <script src="coo.data.js"></script>
   <script src="coo.report.js"></script>
   <script src="coo.render.js"></script>
+  <script src="coo.mail.js"></script>
   <script src="coordi.core.js"></script>
   <script src="coordi.export.js"></script>
   <script src="coordi.app.js"></script>
