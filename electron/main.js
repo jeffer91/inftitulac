@@ -5,7 +5,8 @@ Funcion o funciones:
 - Abrir la aplicacion Requisitos desde npm start.
 - Cargar Maqueta/maq-index.html como pantalla principal.
 - Mantener Electron simple, local y seguro.
-- Bloquear navegacion externa dentro de la ventana principal y abrir enlaces externos en el navegador.
+- Bloquear navegacion externa dentro de la ventana principal y abrir enlaces externos seguros fuera de la app.
+- Permitir enlaces http/https y mailto para abrir navegador, Outlook o cliente de correo predeterminado.
 - Abrir SISACAD en una ventana visible independiente para el modulo Sacar N.
 - Exponer funciones controladas mediante preload.js.
 Con que se conecta:
@@ -13,6 +14,7 @@ Con que se conecta:
 - electron/preload.js
 - Maqueta/maq-index.html
 - sn-sacar-n/sn-sisacad-browser.service.js
+- Coordi/coo.mail.js
 ========================================================= */
 const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
 const path = require('node:path');
@@ -47,6 +49,14 @@ function isInsideApp(url) {
 
 function isExternalHttp(url) {
   return /^https?:\/\//i.test(String(url || ''));
+}
+
+function isExternalMailto(url) {
+  return /^mailto:/i.test(String(url || ''));
+}
+
+function isOpenableExternal(url) {
+  return isExternalHttp(url) || isExternalMailto(url);
 }
 
 function isSisacadUrl(url) {
@@ -121,7 +131,7 @@ async function openSisacadWindow() {
 
   snSisacadWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (isSisacadUrl(url)) return { action: 'allow' };
-    if (isExternalHttp(url)) {
+    if (isOpenableExternal(url)) {
       shell.openExternal(url);
       return { action: 'deny' };
     }
@@ -131,7 +141,7 @@ async function openSisacadWindow() {
   snSisacadWindow.webContents.on('will-navigate', (event, url) => {
     if (isSisacadUrl(url)) return;
     event.preventDefault();
-    if (isExternalHttp(url)) shell.openExternal(url);
+    if (isOpenableExternal(url)) shell.openExternal(url);
   });
 
   snSisacadWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
@@ -185,7 +195,7 @@ function createMainWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (isExternalHttp(url)) {
+    if (isOpenableExternal(url)) {
       shell.openExternal(url);
       return { action: 'deny' };
     }
@@ -196,7 +206,7 @@ function createMainWindow() {
   });
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (isExternalHttp(url)) {
+    if (isOpenableExternal(url)) {
       event.preventDefault();
       shell.openExternal(url);
       return;
@@ -225,7 +235,7 @@ ipcMain.handle('requisitos:get-app-info', () => ({
 }));
 
 ipcMain.handle('requisitos:open-external', async (_event, url) => {
-  if (!isExternalHttp(url)) return false;
+  if (!isOpenableExternal(url)) return false;
   await shell.openExternal(url);
   return true;
 });
@@ -240,10 +250,10 @@ app.whenReady().then(createMainWindow).catch((error) => {
   app.quit();
 });
 
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
-});
-
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
 });
