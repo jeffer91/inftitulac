@@ -23,6 +23,23 @@
     });
   }
 
+  function txt(value){ return String(value == null ? "" : value).trim(); }
+  function searchKey(value){ return txt(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase(); }
+
+  function byKey(rows, key){
+    var map = {};
+    B.asArray(rows).forEach(function(row){
+      var id = txt(row && row[key]);
+      if(id){ map[id] = row; }
+    });
+    return map;
+  }
+
+  function detailOriginal(detail){
+    detail = detail || {};
+    return Object.assign({}, detail.datosOriginalesFirebase || {}, detail.camposExtra || {});
+  }
+
   function withAliases(row){
     row = Object.assign({}, row || {});
     row.cedula = row.cedula || row.numeroIdentificacion || "";
@@ -38,6 +55,15 @@
     row.division = row.division || row.divisionPrincipal || "";
     row.Division = row.Division || row.divisionPrincipal || "";
     row.divisiones = Array.isArray(row.divisiones) ? row.divisiones : (row.divisionPrincipal ? [row.divisionPrincipal] : []);
+    row.correoPersonal = row.correoPersonal || row.CorreoPersonal || row.correo || row.Correo || row.email || row.Email || "";
+    row.CorreoPersonal = row.CorreoPersonal || row.correoPersonal || "";
+    row.correoInstitucional = row.correoInstitucional || row.CorreoInstitucional || row.correoInst || row.CorreoInst || "";
+    row.CorreoInstitucional = row.CorreoInstitucional || row.correoInstitucional || "";
+    row.correo = row.correo || row.correoPersonal || row.correoInstitucional || "";
+    row.Correo = row.Correo || row.correo || "";
+    row.celular = row.celular || row.Celular || row.telefono || row.Telefono || row["Teléfono"] || row.whatsapp || "";
+    row.Celular = row.Celular || row.celular || "";
+    row.telefono = row.telefono || row.celular || "";
     row.Academico = row.Academico || row.academico || "";
     row.Financiero = row.Financiero || row.financiero || "";
     row.Documentacion = row.Documentacion || row.documentacion || "";
@@ -47,13 +73,29 @@
     row.AprobacionTitulacion = row.AprobacionTitulacion || row.aprobacionTitulacion || "";
     row.AprobacionComplexivoProyecto = row.AprobacionComplexivoProyecto || row.aprobacionComplexivoProyecto || "";
     row.estado = row.estado || row.estadoGeneral || "";
+    row.searchKey = searchKey([row.searchKey, row.numeroIdentificacion, row.cedula, row.Nombres, row.nombres, row.nombreCarrera, row.NombreCarrera, row.sede, row.Sede, row.division, row.Division, row.correoPersonal, row.correoInstitucional, row.correo, row.celular].join(" "));
     return row;
+  }
+
+  function mergeStudents(resumenRows, personaRows, detalleRows){
+    var personas = byKey(personaRows, "numeroIdentificacion");
+    var detalles = byKey(detalleRows, "idEstudiantePeriodo");
+    return B.asArray(resumenRows).map(function(resumen){
+      var persona = personas[txt(resumen && resumen.numeroIdentificacion)] || {};
+      var detalle = detalles[txt(resumen && resumen.idEstudiantePeriodo)] || {};
+      return withAliases(Object.assign({}, detailOriginal(detalle), persona, resumen, {
+        detalleId: detalle.idEstudiantePeriodo || "",
+        datosOriginalesFirebase: detalle.datosOriginalesFirebase || {}
+      }));
+    });
   }
 
   function mirrorSnapshot(){
     return Promise.all([
       B.list(B.stores.periodos, { limit: 0 }),
-      B.list(B.stores.estudiantesResumen, { limit: 0 })
+      B.list(B.stores.estudiantesResumen, { limit: 0 }),
+      B.list(B.stores.estudiantesPersona, { limit: 0 }),
+      B.list(B.stores.estudiantesDetalle, { limit: 0 })
     ]).then(function(parts){
       var periods = (parts[0] || []).map(function(p){
         return Object.assign({}, p, {
@@ -62,7 +104,7 @@
           label: p.periodoLabel || p.periodoId
         });
       });
-      var students = (parts[1] || []).map(withAliases);
+      var students = mergeStudents(parts[1] || [], parts[2] || [], parts[3] || []);
       var snapshot = {
         meta: {
           app: "Requisitos",
@@ -157,13 +199,21 @@
       B.byIndex(B.stores.estudianteNotas, "by_idEstudiantePeriodo", idEstudiantePeriodo, { limit: 0 }),
       B.byIndex(B.stores.estudianteDivisiones, "by_idEstudiantePeriodo", idEstudiantePeriodo, { limit: 0 })
     ]).then(function(parts){
-      return {
-        resumen: parts[0] || null,
-        detalle: parts[1] || null,
-        requisitos: parts[2] || [],
-        notas: parts[3] || [],
-        divisiones: parts[4] || []
-      };
+      var resumen = parts[0] || null;
+      var detalle = parts[1] || null;
+      var numero = resumen && resumen.numeroIdentificacion;
+      var personaPromise = numero ? B.get(B.stores.estudiantesPersona, numero).catch(function(){ return null; }) : Promise.resolve(null);
+      return personaPromise.then(function(persona){
+        return {
+          resumen: resumen,
+          persona: persona || null,
+          detalle: detalle,
+          estudiante: withAliases(Object.assign({}, detailOriginal(detalle), persona || {}, resumen || {})),
+          requisitos: parts[2] || [],
+          notas: parts[3] || [],
+          divisiones: parts[4] || []
+        };
+      });
     });
   }
 
