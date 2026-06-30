@@ -39,6 +39,10 @@ Con que se conecta:
     return window.BDLocal || null;
   }
 
+  function repoEstudiantes(){
+    return window.BDLRepoEstudiantes || null;
+  }
+
   function setMensaje(mensaje, estado){
     if(state.setModulo && cfg.estadosModulo){
       state.setModulo(estado || (state.get ? state.get().modulo : cfg.estadosModulo.listo), mensaje);
@@ -68,22 +72,30 @@ Con que se conecta:
     });
   }
 
-  function listarPagina(periodoId, page, acumulado){
-    acumulado = acumulado || [];
-    var bd = api();
-    if(!bd || !bd.estudiantes || typeof bd.estudiantes.resumen !== "function"){
-      return Promise.resolve(acumulado);
+  function listarEstudiantes(periodoId){
+    var repo = repoEstudiantes();
+    if(repo && typeof repo.listarResumen === "function"){
+      return repo.listarResumen(periodoId || "", { limit:0 }).then(function(rows){
+        return rows || [];
+      });
     }
 
+    var bd = api();
+    if(!bd || !bd.estudiantes || typeof bd.estudiantes.resumen !== "function"){
+      return Promise.resolve([]);
+    }
+
+    var acumulado = [];
     var limit = 500;
-    return bd.estudiantes.resumen({ periodoId: periodoId || "", page: page, limit: limit, force:true }).then(function(res){
-      var rows = (res && res.rows) || [];
-      acumulado = acumulado.concat(rows);
-      if(rows.length >= limit){
-        return listarPagina(periodoId, page + 1, acumulado);
-      }
-      return acumulado;
-    });
+    function cargarPagina(page){
+      return bd.estudiantes.resumen({ periodoId: periodoId || "", page: page, limit: limit, force:true }).then(function(res){
+        var rows = (res && res.rows) || [];
+        acumulado = acumulado.concat(rows);
+        if(rows.length >= limit){ return cargarPagina(page + 1); }
+        return acumulado;
+      });
+    }
+    return cargarPagina(1);
   }
 
   function obtenerCampo(row, nombres){
@@ -106,7 +118,10 @@ Con que se conecta:
       codigoCarrera: obtenerCampo(row, ["codigoCarrera", "CodigoCarrera"]),
       sede: obtenerCampo(row, ["sede", "Sede"])
     };
-    return models.crearEstudiante ? models.crearEstudiante(base, index) : base;
+    var estudiante = models.crearEstudiante ? models.crearEstudiante(base, index) : base;
+    estudiante.codigoCarrera = texto(base.codigoCarrera);
+    estudiante.sede = texto(base.sede);
+    return estudiante;
   }
 
   function filtrarPorCarreraYModalidad(estudiantes, filtros){
@@ -166,13 +181,16 @@ Con que se conecta:
     return bootBDLocal().then(function(){
       return listarPeriodos();
     }).then(function(periodos){
-      return listarPagina("", 1, []).then(function(rows){
+      return listarEstudiantes("").then(function(rows){
         var estudiantes = rows.map(normalizarEstudiante);
         var catalogos = catalogosDesdeEstudiantes(estudiantes, periodos);
+        var periodoInicial = "";
+        if(periodos.length === 1){ periodoInicial = periodos[0].id; }
         if(state.patch){
           state.patch({
             catalogos: catalogos,
             estudiantesBase: estudiantes,
+            periodoSeleccionado: (state.get && state.get().periodoSeleccionado) || periodoInicial,
             mensaje: "Catalogos cargados. Seleccione periodo/carrera y presione Cargar estudiantes."
           });
         }
@@ -198,7 +216,7 @@ Con que se conecta:
 
     setMensaje("Cargando estudiantes desde BDLocal...", cfg.estadosModulo ? cfg.estadosModulo.cargandoEstudiantes : "cargando_estudiantes");
     return bootBDLocal().then(function(){
-      return listarPagina(periodoId, 1, []);
+      return listarEstudiantes(periodoId);
     }).then(function(rows){
       var estudiantes = rows.map(normalizarEstudiante);
       estudiantes = filtrarPorCarreraYModalidad(estudiantes, { carrera:carrera, modalidad:modalidad, busqueda:busqueda });
