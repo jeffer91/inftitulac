@@ -41,7 +41,7 @@
     "sync/bdl.sync.download.js",
     "sync/bdl.sync.engine.js",
     "sync/bdl.sync.index.js",
-    "adapters/bdl.legacy-adapter.js"
+    "adapters/bdl.screen-compat.js"
   ];
 
   document.write(files.map(function(file){
