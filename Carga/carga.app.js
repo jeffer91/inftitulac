@@ -44,7 +44,8 @@
     var current = state.get();
     state.setStatus(cfg.estados.committing, "Guardando en BDLocal");
     return window.CargaSave.save(current.normalized, { errors: current.errors, warnings: current.warnings, ok: current.errors.length === 0 }, options || {}).then(function(result){
-      var report = window.CargaReport.build(result, { errors: current.errors, warnings: current.warnings, ok: current.errors.length === 0, total: current.rows.length });
+      var latest = state.get();
+      var report = window.CargaReport.build(result, { errors: latest.errors, warnings: latest.warnings, ok: latest.errors.length === 0, total: latest.rows.length }, latest);
       state.patch({ lastResult: report });
       state.setStatus(report.ok ? cfg.estados.done : cfg.estados.error, report.ok ? "Carga guardada" : "Carga no guardada");
       return report;
