@@ -142,7 +142,12 @@
       <article class="bl-panel-card">
         <h2>Google Sheets</h2>
         <p>Reporte visible y revisión. No será la base principal.</p>
-        <div class="bl-panel-note">Aquí se agregará exportación de reportes y configuración de hoja.</div>
+        <div class="bl-continuity-actions">
+          <button id="blBtnSheetsPreview" class="bl-btn light">Vista previa del reporte</button>
+          <button id="blBtnSheetsSend" class="bl-btn primary">Enviar reporte a Google Sheets</button>
+        </div>
+        <div class="bl-panel-note">Para enviar directo a Google Sheets se debe configurar un Apps Script Web App en Ajustes. Si no está configurado, la vista previa seguirá funcionando.</div>
+        <pre id="blSheetsOutput" class="bl-output">Sin reporte generado.</pre>
       </article>
     </section>
 
@@ -220,6 +225,7 @@
   <script src="ui/panels/panel.settings.js"></script>
   <script src="ui/panels/panel.diagnostics.js"></script>
   <script src="ui/panels/panel.close-day.js"></script>
+  <script src="ui/panels/panel.sheets.js"></script>
   <script src="ui/bl.app.js"></script>
   <script src="ui/bl.ui.js"></script>
 </body>
