@@ -114,7 +114,6 @@ function searchStudentScript(cedula) {
     input.value = cedula;
     input.dispatchEvent(new Event('input', { bubbles:true }));
     input.dispatchEvent(new Event('change', { bubbles:true }));
-    input.dispatchEvent(new KeyboardEvent('keyup', { bubbles:true, key:'Enter' }));
 
     const forbidden = /(guardar|grabar|actualizar|eliminar|borrar|modificar|editar|calificar|registrar|aprobar|anular)/i;
     const nodes = Array.from(document.querySelectorAll('button,input[type="button"],input[type="submit"],a,[role="button"],[onclick]'))
@@ -193,7 +192,7 @@ function readNotesScript() {
     const necesitaLogin = bodyNorm.includes('USUARIO') && (bodyNorm.includes('CONTRASENA') || bodyNorm.includes('CONTRASEÑA') || bodyNorm.includes('PASSWORD'));
     const noEncontrado = ['NO SE ENCONTRARON', 'NO EXISTEN REGISTROS', 'SIN RESULTADOS', 'NO ENCONTRADO', 'NO EXISTE'].some((txt) => bodyNorm.includes(txt));
     const numberFromText = (text) => {
-      const matches = String(text || '').match(/\b\d{1,3}(?:[.,]\d{1,2})?\b/g) || [];
+      const matches = String(text || '').match(/[0-9]{1,3}(?:[.,][0-9]{1,2})?/g) || [];
       const clean = matches.map((n) => n.replace(',', '.')).filter((n) => {
         const value = Number(n);
         return Number.isFinite(value) && value >= 0 && value <= 100;
@@ -206,7 +205,7 @@ function readNotesScript() {
       calificacionFinalProyecto: ['CALIFICACION FINAL DEL PROYECTO DE TITULACION', 'CALIFICACIÓN FINAL DEL PROYECTO DE TITULACIÓN', 'CALIFICACION FINAL', 'CALIFICACIÓN FINAL']
     };
     const rows = Array.from(document.querySelectorAll('tr')).map((tr) => tr.innerText || '').filter(Boolean);
-    const lines = rawBody.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    const lines = rawBody.split(String.fromCharCode(10)).map((l) => l.replace(String.fromCharCode(13), '').trim()).filter(Boolean);
     const allRows = rows.length ? rows : lines;
     const notas = { promedioTrabajoEscrito:'', promedioDefensaOral:'', calificacionFinalProyecto:'' };
     const fuentes = {};
@@ -235,33 +234,14 @@ function readNotesScript() {
       fuentes[key] = found.source;
     });
     const tieneNotas = !!(notas.promedioTrabajoEscrito || notas.promedioDefensaOral || notas.calificacionFinalProyecto);
-    return {
-      ok:true,
-      necesitaLogin,
-      noEncontrado,
-      tieneNotas,
-      notas,
-      fuentes,
-      url:location.href,
-      title:document.title || '',
-      textoMuestra: rawBody.slice(0, 1600)
-    };
+    return { ok:true, necesitaLogin, noEncontrado, tieneNotas, notas, fuentes, url:location.href, title:document.title || '', textoMuestra: rawBody.slice(0, 1600) };
   })()`;
 }
 
 async function procesarEstudiante(estudiante, context) {
   const sisacadWindow = context.getWindow();
   if (!estudiante.cedula) {
-    return {
-      ok: false,
-      id: estudiante.id,
-      cedula: estudiante.cedula,
-      nombres: estudiante.nombres,
-      estado: 'Revisar manualmente',
-      notas: {},
-      observacion: 'Cedula vacia. No se puede buscar en SISACAD.',
-      paso: 'validacion'
-    };
+    return { ok:false, id:estudiante.id, cedula:estudiante.cedula, nombres:estudiante.nombres, estado:'Revisar manualmente', notas:{}, observacion:'Cedula vacia. No se puede buscar en SISACAD.', paso:'validacion' };
   }
 
   const buscar = await executeInWindow(sisacadWindow, searchStudentScript(estudiante.cedula));
@@ -291,28 +271,12 @@ async function procesarEstudiante(estudiante, context) {
     ok = true;
   }
 
-  return {
-    ok,
-    id: estudiante.id,
-    cedula: estudiante.cedula,
-    nombres: estudiante.nombres,
-    carrera: estudiante.carrera,
-    periodo: estudiante.periodo,
-    estado,
-    notas: (lectura && lectura.notas) || {},
-    observacion,
-    paso: 'prueba_visible',
-    buscar,
-    seleccionar,
-    lectura
-  };
+  return { ok, id:estudiante.id, cedula:estudiante.cedula, nombres:estudiante.nombres, carrera:estudiante.carrera, periodo:estudiante.periodo, estado, notas:(lectura && lectura.notas) || {}, observacion, paso:'prueba_visible', buscar, seleccionar, lectura };
 }
 
 async function runPruebaVisible(estudiantes, context) {
   const lista = (Array.isArray(estudiantes) ? estudiantes : []).slice(0, 3).map(estudianteSeguro);
-  if (!lista.length) {
-    return { ok:false, mensaje:'No hay estudiantes para prueba visible.', resultados:[] };
-  }
+  if (!lista.length) return { ok:false, mensaje:'No hay estudiantes para prueba visible.', resultados:[] };
 
   await context.ensureOpen();
   await wait(700);
@@ -325,16 +289,7 @@ async function runPruebaVisible(estudiantes, context) {
       ok:false,
       necesitaLogin:true,
       mensaje:'SISACAD necesita inicio de sesion manual. Ingrese y vuelva a ejecutar la prueba visible.',
-      resultados: lista.map((e) => ({
-        ok:false,
-        id:e.id,
-        cedula:e.cedula,
-        nombres:e.nombres,
-        estado:'Sesion expirada',
-        notas:{},
-        observacion:'SISACAD requiere inicio de sesion manual.',
-        paso:'sesion'
-      }))
+      resultados: lista.map((e) => ({ ok:false, id:e.id, cedula:e.cedula, nombres:e.nombres, estado:'Sesion expirada', notas:{}, observacion:'SISACAD requiere inicio de sesion manual.', paso:'sesion' }))
     };
   }
 
@@ -342,16 +297,7 @@ async function runPruebaVisible(estudiantes, context) {
     return {
       ok:false,
       mensaje:'Antes de la prueba visible, vaya a Registro Notas Proyecto.',
-      resultados: lista.map((e) => ({
-        ok:false,
-        id:e.id,
-        cedula:e.cedula,
-        nombres:e.nombres,
-        estado:'Revisar manualmente',
-        notas:{},
-        observacion:'La ventana de SISACAD no esta en Registro Notas Proyecto.',
-        paso:'pantalla'
-      }))
+      resultados: lista.map((e) => ({ ok:false, id:e.id, cedula:e.cedula, nombres:e.nombres, estado:'Revisar manualmente', notas:{}, observacion:'La ventana de SISACAD no esta en Registro Notas Proyecto.', paso:'pantalla' }))
     };
   }
 
@@ -372,15 +318,7 @@ async function runPruebaVisible(estudiantes, context) {
     return acc;
   }, { total:0, procesados:0, sinNotas:0, noEncontrados:0, revisar:0 });
 
-  return {
-    ok:true,
-    modo:'prueba_visible',
-    mensaje:'Prueba visible finalizada.',
-    resultados,
-    resumen
-  };
+  return { ok:true, modo:'prueba_visible', mensaje:'Prueba visible finalizada.', resultados, resumen };
 }
 
-module.exports = {
-  runPruebaVisible
-};
+module.exports = { runPruebaVisible };
