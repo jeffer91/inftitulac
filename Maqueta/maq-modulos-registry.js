@@ -2,11 +2,10 @@
 Nombre completo: maq-modulos-registry.js
 Ruta o ubicación: /Requisitos/Maqueta/maq-modulos-registry.js
 Función o funciones:
-- Definir rutas internas reales del menú de Carga.
-- Activar todos los módulos internos recuperados.
-- Mantener rutas internas estables para no romper enlaces durante cambios de carpeta.
-- Integrar el módulo Títulos desde la carpeta /Requisitos/Titulos.
-- Mostrar el módulo de informes de titulación como Infor desde /Requisitos/Infor.
+- Definir rutas internas reales del menú de Requisitos.
+- Enviar Carga y Base Local a la nueva pantalla BDLocal.
+- Mantener pantallas históricas activas mediante adaptadores de compatibilidad.
+- Evitar rutas rotas hacia BaseLocal, BaseLocal2 y Gestion/Excel.
 Con qué se conecta:
 - maq-config-service.js
 - maq-core.js
@@ -14,9 +13,10 @@ Con qué se conecta:
 (function(window){
   "use strict";
   var base="..";
+  var bdlocal=base+"/BDLocal/bdlocal.html";
   var modules={
-    carga_excel:{id:"carga_excel",nombre:"Carga",ruta:base+"/Gestion/Excel/excel.html",estado:"activo"},
-    baselocal:{id:"baselocal",nombre:"Base Local",ruta:base+"/BaseLocal/baselocal.html",estado:"activo"},
+    carga_excel:{id:"carga_excel",nombre:"Carga",ruta:bdlocal,estado:"activo"},
+    baselocal:{id:"baselocal",nombre:"Base Local",ruta:bdlocal,estado:"activo"},
     tabla_principal:{id:"tabla_principal",nombre:"Tabla",ruta:base+"/Gestion/Tabla/tabla.html",estado:"activo"},
     ficha_estudiante:{id:"ficha_estudiante",nombre:"Ficha",ruta:base+"/Ficha/ficha.html",estado:"activo"},
     stat_main:{id:"stat_main",nombre:"Estadísticas",ruta:base+"/Stats/stats.html",estado:"activo"},
