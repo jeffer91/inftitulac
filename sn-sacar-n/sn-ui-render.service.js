@@ -144,6 +144,7 @@ Con que se conecta:
     var estaPausado = modulo === ((cfg.estadosModulo && cfg.estadosModulo.pausado) || "pausado");
     setDisabled("snBtnCargarEstudiantes", !tienePeriodos);
     setDisabled("snBtnAbrirSisacad", false);
+    setDisabled("snBtnIrRegistro", false);
     setDisabled("snBtnPruebaVisible", !tieneEstudiantes);
     setDisabled("snBtnContinuarAutomatico", !tieneEstudiantes);
     setDisabled("snBtnPausar", !estaExtrayendo);
