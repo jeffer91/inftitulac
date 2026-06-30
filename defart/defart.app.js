@@ -3,7 +3,8 @@ Nombre completo: defart.app.js
 Ruta o ubicación: /Requisitos/defart/defart.app.js
 Función o funciones:
 - Renderizar tabla inteligente de Defensas.
-- Manejar filtros por período, división, carrera, estado, sede y búsqueda.
+- Manejar filtros por período, división, carrera, estado y búsqueda.
+- Mantener División solo como filtro, no como columna.
 - Editar N-ART y N-DEF directamente en tabla.
 - Aplicar estados finales: Falta requisitos, Supletorio Art, Supletorio Def, Aprobado.
 - Bloquear N-ART si faltan requisitos y N-DEF si N-ART es menor a 7.
@@ -22,7 +23,6 @@ Con qué se conecta:
     division:"",
     career:"",
     status:"",
-    sede:"",
     search:"",
     sortKey:"_nombre",
     sortDir:"asc",
@@ -38,7 +38,6 @@ Con qué se conecta:
     {key:"_cedula", label:"Cédula", className:"col-cedula"},
     {key:"_nombre", label:"Nombre", className:"col-nombre"},
     {key:"_carrera", label:"Carrera", className:"col-carrera"},
-    {key:"_division", label:"División", className:"col-carrera"},
     {key:"_nart", label:"N-ART", className:"col-nota"},
     {key:"_ndef", label:"N-DEF", className:"col-nota"},
     {key:"_nfin", label:"N-FIN", className:"col-nota"}
@@ -89,7 +88,6 @@ Con qué se conecta:
     var periodo = el("def-filter-periodo");
     var division = el("def-filter-division");
     var carrera = el("def-filter-carrera");
-    var sede = el("def-filter-sede");
     var estado = el("def-filter-estado");
 
     if(periodo){
@@ -129,41 +127,14 @@ Con qué se conecta:
       }).join("");
       estado.value = state.status;
     }
-
-    if(sede){
-      sede.innerHTML = option("", "Todas", !state.sede) + (data.sedeList || []).map(function(item){
-        return option(item, item, state.sede === item);
-      }).join("");
-      if(state.sede && !(data.sedeList || []).some(function(x){ return x === state.sede; })){
-        state.sede = "";
-        sede.value = "";
-      }else{
-        sede.value = state.sede;
-      }
-    }
-  }
-
-  function kpi(id, value){
-    var box = el(id);
-    if(box){ box.textContent = value || 0; }
-  }
-
-  function renderKpis(data){
-    var k = data.kpis || {};
-    kpi("def-kpi-total", k.total);
-    kpi("def-kpi-sin-req", k["Falta requisitos"] || k["Sin requisitos"]);
-    kpi("def-kpi-pend-art", 0);
-    kpi("def-kpi-sup-art", k["Supletorio Art"]);
-    kpi("def-kpi-pend-def", 0);
-    kpi("def-kpi-sup-def", k["Supletorio Def"]);
-    kpi("def-kpi-completo", k["Aprobado"] || k["Completo"]);
   }
 
   function stateClass(row){
     var value = row && row._estadoDefensa;
     if(value === "Aprobado" || value === "Completo"){ return "estado-completo"; }
     if(value === "Falta requisitos" || value === "Sin requisitos"){ return "estado-sin-requisitos"; }
-    if(value === "Supletorio Art" || value === "Supletorio Def"){ return "estado-supletorio"; }
+    if(value === "Supletorio Art"){ return "estado-supletorio-art"; }
+    if(value === "Supletorio Def"){ return "estado-supletorio-def"; }
     return "estado-pendiente";
   }
 
@@ -187,13 +158,19 @@ Con qué se conecta:
     return "";
   }
 
+  function noteClass(value){
+    var num = Number(noteText(value));
+    if(!Number.isFinite(num)){ return "nota-vacia"; }
+    return num >= 7 ? "nota-ok" : "nota-baja";
+  }
+
   function inputHtml(row, field){
     var shown = withPending(row);
     var isArt = field === "nart";
     var value = isArt ? shown._nart : shown._ndef;
     var enabled = isArt ? shown._canArt : shown._canDef;
     var title = enabled ? "" : blockTitle(shown, isArt);
-    return '<input class="def-note-input" type="number" min="0" max="10" step="0.01" inputmode="decimal" data-id="' + esc(row._defId) + '" data-field="' + field + '" value="' + esc(noteText(value)) + '" ' + (enabled ? "" : "disabled") + ' title="' + esc(title) + '" />';
+    return '<input class="def-note-input ' + noteClass(value) + '" type="number" min="0" max="10" step="0.01" inputmode="decimal" data-id="' + esc(row._defId) + '" data-field="' + field + '" value="' + esc(noteText(value)) + '" ' + (enabled ? "" : "disabled") + ' title="' + esc(title) + '" />';
   }
 
   function sortIcon(key){
@@ -204,7 +181,10 @@ Con qué se conecta:
   function cellFor(row, header){
     if(header.key === "_nart"){ return inputHtml(row, "nart"); }
     if(header.key === "_ndef"){ return inputHtml(row, "ndef"); }
-    if(header.key === "_nfin"){ return '<strong class="def-nfin-value">' + esc(noteText(withPending(row)._nfin)) + '</strong>'; }
+    if(header.key === "_nfin"){
+      var value = withPending(row)._nfin;
+      return '<strong class="def-nfin-value ' + noteClass(value) + '">' + esc(noteText(value)) + '</strong>';
+    }
     return esc(withPending(row)[header.key] || "");
   }
 
@@ -230,7 +210,6 @@ Con qué se conecta:
       division:state.division,
       career:state.career,
       status:state.status,
-      sede:state.sede,
       search:state.search,
       sortKey:state.sortKey,
       sortDir:state.sortDir
@@ -243,7 +222,6 @@ Con qué se conecta:
     try{
       state.data = window.DefartCore.summary(collectOptions());
       fillFilters(state.data);
-      renderKpis(state.data);
       var wrap = el("def-table-wrap");
       if(wrap){ wrap.innerHTML = tableHtml(state.data.rows || []); }
       if(el("def-visible-count")){ el("def-visible-count").textContent = (state.data.rows || []).length + " visibles"; }
@@ -332,7 +310,10 @@ Con qué se conecta:
     if(!rowEl){ return; }
     rowEl.className = stateClass(preview) + " is-pending";
     var nfin = rowEl.querySelector(".def-nfin-value");
-    if(nfin){ nfin.textContent = noteText(preview._nfin); }
+    if(nfin){
+      nfin.textContent = noteText(preview._nfin);
+      nfin.className = "def-nfin-value " + noteClass(preview._nfin);
+    }
     var estado = rowEl.querySelector(".col-estado");
     if(estado){ estado.innerHTML = statePill(preview); }
     var ndefInput = findInput(id, "ndef");
@@ -444,13 +425,11 @@ Con qué se conecta:
     state.division = "";
     state.career = "";
     state.status = "";
-    state.sede = "";
     state.search = "";
     if(el("def-filter-periodo")){ el("def-filter-periodo").value = ""; }
     if(el("def-filter-division")){ el("def-filter-division").value = ""; }
     if(el("def-filter-carrera")){ el("def-filter-carrera").value = ""; }
     if(el("def-filter-estado")){ el("def-filter-estado").value = ""; }
-    if(el("def-filter-sede")){ el("def-filter-sede").value = ""; }
     if(el("def-filter-search")){ el("def-filter-search").value = ""; }
     render();
   }
@@ -480,12 +459,6 @@ Con qué se conecta:
     if(el("def-filter-estado")){
       el("def-filter-estado").addEventListener("change", function(event){
         state.status = event.target.value;
-        render();
-      });
-    }
-    if(el("def-filter-sede")){
-      el("def-filter-sede").addEventListener("change", function(event){
-        state.sede = event.target.value;
         render();
       });
     }
