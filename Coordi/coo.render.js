@@ -4,23 +4,23 @@ Ruta o ubicación: /Requisitos/Coordi/coo.render.js
 Función o funciones:
 - Pintar reportes reales de Coordi en pantalla.
 - Mostrar global, resumen por áreas, reportes listos, tarjetas por responsable y detalle.
-- Preparar vista previa visual sin enviar correos todavía.
+- Preparar vista previa visual y acciones de correo Outlook.
 Con qué se conecta:
 - coo.report.js
 - coo.config.js
+- coo.mail.js
 - coordi.app.js
 ========================================================= */
 (function(window,document){
   "use strict";
 
-  var VERSION = "1.0.0-coo-render.1";
+  var VERSION = "1.0.0-coo-render.2";
 
   function el(id){return document.getElementById(id);}
   function text(value){return String(value == null ? "" : value).trim();}
   function arr(value){return Array.isArray(value) ? value : [];} 
   function esc(value){return text(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#039;");}
   function fmt(value){value = Number(value || 0);return value.toLocaleString("es-EC");}
-  function selected(state, value){return text(state) === text(value) ? "selected" : "";}
   function option(value,label,isSelected){return '<option value="'+esc(value)+'" '+(isSelected?'selected':'')+'>'+esc(label || value)+'</option>';}
 
   function setText(id,value){var node=el(id);if(node){node.textContent=text(value);}}
@@ -55,9 +55,7 @@ Con qué se conecta:
 
   function totalCarreras(report){
     var map = Object.create(null);
-    arr(report && report.areasConPendientes).forEach(function(area){
-      arr(area.carreras).forEach(function(carrera){map[carrera] = true;});
-    });
+    arr(report && report.areasConPendientes).forEach(function(area){arr(area.carreras).forEach(function(carrera){map[carrera] = true;});});
     return Object.keys(map).length;
   }
 
@@ -71,9 +69,7 @@ Con qué se conecta:
       p.value = state.periodId || "";
     }
     if(d){
-      d.innerHTML = option("","Todas",!state.division) + arr(report.divisionList).map(function(division){
-        return option(division, division, text(state.division) === text(division));
-      }).join("");
+      d.innerHTML = option("","Todas",!state.division) + arr(report.divisionList).map(function(division){return option(division, division, text(state.division) === text(division));}).join("");
       d.value = state.division || "";
     }
   }
@@ -89,17 +85,16 @@ Con qué se conecta:
 
   function renderGlobal(report){
     var global = report.global || {};
+    var hasData = global.totalEstudiantesPendientes > 0;
     setText("coordi-global-name", global.responsable || "Dr. Alex León");
     setText("coordi-global-email", global.correo || "aleon@itsqmet.edu.ec");
     setText("coordi-global-phone", global.whatsapp || "593984059654");
     setText("coordi-global-desc", "Estudiantes con pendientes: " + fmt(global.totalEstudiantesPendientes) + " · Áreas con pendientes: " + fmt(global.totalAreasConPendientes) + " · Pendientes acumulados: " + fmt(global.totalPendientes));
-    ["coo-global-preview"].forEach(function(id){var b=el(id);if(b){b.disabled = !(global.totalEstudiantesPendientes > 0);}});
+    ["coo-global-preview","coo-global-mail"].forEach(function(id){var b=el(id);if(b){b.disabled = !hasData;}});
   }
 
   function renderAreaSummary(report){
-    var rows = arr(report.areas).map(function(area){
-      return Object.assign({}, area, {estado:area.totalEstudiantes > 0 ? "Con pendientes" : "Sin pendientes"});
-    });
+    var rows = arr(report.areas).map(function(area){return Object.assign({}, area, {estado:area.totalEstudiantes > 0 ? "Con pendientes" : "Sin pendientes"});});
     setHTML("coordi-requisitos", table([
       {label:"Área", value:function(r){return '<strong>'+esc(r.area)+'</strong><br><span class="muted-text">'+esc(r.responsable)+'</span>'; }},
       {label:"Estudiantes", value:function(r){return '<span class="number-strong">'+fmt(r.totalEstudiantes)+'</span>'; }},
@@ -129,15 +124,17 @@ Con qué se conecta:
   function areaCard(area, selectedAreaId){
     var selected = area.id === selectedAreaId ? " selected" : "";
     var empty = area.totalEstudiantes <= 0 ? " empty-area" : "";
+    var disabled = area.totalEstudiantes > 0 ? "" : "disabled";
     return '<article class="area-card'+selected+empty+'">'
       + '<div class="area-card-head"><div><h3>'+esc(area.area)+'</h3><p>'+esc(area.responsable)+'</p></div>'
       + (area.totalEstudiantes > 0 ? '<span class="pill pill-media">Pendiente</span>' : '<span class="pill pill-baja">Ok</span>') + '</div>'
       + '<div class="area-contact"><span>'+esc(area.correo)+'</span><span>'+esc(area.whatsapp)+'</span></div>'
       + '<div class="area-stats"><div><strong>'+fmt(area.totalEstudiantes)+'</strong><span>Estudiantes</span></div><div><strong>'+fmt(area.totalPendientes)+'</strong><span>Pendientes</span></div><div><strong>'+fmt(arr(area.carreras).length)+'</strong><span>Carreras</span></div></div>'
       + '<div class="area-card-actions">'
-      + '<button type="button" class="btn-secondary" data-action="preview-area" data-area-id="'+esc(area.id)+'" '+(area.totalEstudiantes>0?'':'disabled')+'>Vista previa</button>'
-      + '<button type="button" class="btn-secondary" data-action="show-detail" data-area-id="'+esc(area.id)+'" '+(area.totalEstudiantes>0?'':'disabled')+'>Ver detalle</button>'
-      + '<button type="button" class="btn-secondary" disabled>Outlook</button>'
+      + '<button type="button" class="btn-secondary" data-action="preview-area-detail" data-area-id="'+esc(area.id)+'" '+disabled+'>Vista previa</button>'
+      + '<button type="button" class="btn-secondary" data-action="show-detail" data-area-id="'+esc(area.id)+'" '+disabled+'>Ver detalle</button>'
+      + '<button type="button" class="btn-secondary" data-action="mail-area-summary" data-area-id="'+esc(area.id)+'" '+disabled+'>Correo resumen</button>'
+      + '<button type="button" class="btn-primary" data-action="mail-area-detail" data-area-id="'+esc(area.id)+'" '+disabled+'>Correo detallado</button>'
       + '<button type="button" class="btn-secondary" disabled>WhatsApp</button>'
       + '</div>'
       + '</article>';
@@ -176,16 +173,13 @@ Con qué se conecta:
     lines.push("Áreas con pendientes: " + fmt(global.totalAreasConPendientes));
     lines.push("Pendientes acumulados: " + fmt(global.totalPendientes));
     lines.push("");
-    arr(report.areasConPendientes).forEach(function(area){
-      lines.push(area.area + ": " + fmt(area.totalEstudiantes) + " estudiantes · " + fmt(area.totalPendientes) + " pendientes · Responsable: " + area.responsable);
-    });
+    arr(report.areasConPendientes).forEach(function(area){lines.push(area.area + ": " + fmt(area.totalEstudiantes) + " estudiantes · " + fmt(area.totalPendientes) + " pendientes · Responsable: " + area.responsable);});
     return lines.join("\n");
   }
 
   function renderMessage(report,state){
-    var msg = summaryText(report);
     var target = el("coordi-message");
-    if(target){target.value = msg;}
+    if(target){target.value = summaryText(report);}
   }
 
   function renderDiagnostics(report){
@@ -194,35 +188,13 @@ Con qué se conecta:
   }
 
   function previewGlobal(report){
-    var global = report.global || {};
-    var rows = arr(global.areas);
-    return '<div class="preview-mail"><p><strong>Para:</strong> '+esc(global.correo)+'</p>'
-      + '<p><strong>Asunto:</strong> Reporte global de pendientes por área</p>'
-      + '<p>Buen día, '+esc(global.saludo || global.responsable)+'.</p>'
-      + '<p>Se remite resumen general de pendientes por área.</p>'
-      + table([
-        {label:"Área", value:function(r){return esc(r.area);}},
-        {label:"Responsable", value:function(r){return esc(r.responsable);}},
-        {label:"Estudiantes", value:function(r){return fmt(r.totalEstudiantes);}},
-        {label:"Pendientes", value:function(r){return fmt(r.totalPendientes);}}
-      ], rows)
-      + '</div>';
+    if(window.COOMail){return window.COOMail.buildGlobal(report).html;}
+    return '<div class="empty">No se cargó el módulo de correo.</div>';
   }
 
-  function previewArea(report, areaId){
-    var area = areaById(report, areaId);
-    if(!area){return '<div class="empty">No se encontró el área seleccionada.</div>';}
-    return '<div class="preview-mail"><p><strong>Para:</strong> '+esc(area.correo)+'</p>'
-      + '<p><strong>Asunto:</strong> Detalle de pendientes · '+esc(area.area)+'</p>'
-      + '<p>Buen día, '+esc(area.saludo || area.responsable)+'.</p>'
-      + '<p>Se remite el detalle de estudiantes con pendientes correspondientes al área '+esc(area.area)+'.</p>'
-      + table([
-        {label:"Cédula", value:function(r){return esc(r.cedula);}},
-        {label:"Nombre", value:function(r){return esc(r.nombre);}},
-        {label:"Carrera", value:function(r){return esc(r.carrera);}},
-        {label:"Requisito pendiente", value:function(r){return esc(r.requisitosTexto);}}
-      ], area.estudiantes)
-      + '</div>';
+  function previewArea(report, areaId, kind){
+    if(!window.COOMail){return '<div class="empty">No se cargó el módulo de correo.</div>';}
+    return kind === "summary" ? window.COOMail.buildAreaSummary(report, areaId).html : window.COOMail.buildAreaDetail(report, areaId).html;
   }
 
   function openPreview(title, html){
