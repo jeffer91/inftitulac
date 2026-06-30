@@ -8,7 +8,7 @@ Funcion o funciones:
 - Abrir SISACAD visible desde Electron.
 - Navegar hasta Registro Notas Proyecto.
 - Ejecutar prueba visible con pocos estudiantes.
-- Ejecutar extraccion automatica completa.
+- Ejecutar, pausar y continuar extraccion automatica completa.
 - Dejar respuesta temporal clara para exportacion.
 Con que se conecta:
 - sn-config.js
@@ -133,14 +133,24 @@ Con que se conecta:
     });
 
     bindClick("snBtnPausar", function(){
-      if(state.setModulo && cfg.estadosModulo){
-        state.setModulo(cfg.estadosModulo.pausado, "Extraccion pausada. En el siguiente bloque se conectara la continuacion exacta desde el ultimo pendiente.");
+      var extractor = window.SNSisacadExtractor;
+      if(extractor && typeof extractor.pausarExtraccion === "function"){
+        extractor.pausarExtraccion().catch(function(error){
+          console.error("[SN_UI_EVENTS] Error al pausar extraccion", error);
+        });
+      }else if(state.setModulo && cfg.estadosModulo){
+        state.setModulo(cfg.estadosModulo.pausado, "Extraccion pausada.");
       }
     });
 
     bindClick("snBtnContinuar", function(){
-      if(state.setModulo && cfg.estadosModulo){
-        state.setModulo(cfg.estadosModulo.listo, "Listo para continuar. La continuacion exacta se conectara en el siguiente bloque.");
+      var extractor = window.SNSisacadExtractor;
+      if(extractor && typeof extractor.continuarExtraccion === "function"){
+        extractor.continuarExtraccion().catch(function(error){
+          console.error("[SN_UI_EVENTS] Error al continuar extraccion", error);
+        });
+      }else if(state.setModulo && cfg.estadosModulo){
+        state.setModulo(cfg.estadosModulo.listo, "Listo para continuar.");
       }
     });
 
