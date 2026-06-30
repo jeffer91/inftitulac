@@ -22,15 +22,22 @@
     H.on('#bdlBtnGuardarCarga', 'click', function(){ if(window.BDLUICarga){ window.BDLUICarga.save(); } });
   }
 
+  function loadInitialData(){
+    var periodoId = window.BDLState && window.BDLState.getPeriodoActivo ? window.BDLState.getPeriodoActivo() : H.val('#bdlPeriodoSelect');
+    if(!periodoId){ H.notify('BDLocal lista. Cargue datos o sincronice Firebase.'); return Promise.resolve(); }
+    var tasks = [];
+    if(window.BDLUIDashboard){ tasks.push(window.BDLUIDashboard.loadDashboard(periodoId)); }
+    if(window.BDLUIEstudiantes){ tasks.push(window.BDLUIEstudiantes.load({ periodoId:periodoId, page:1 })); }
+    return Promise.all(tasks).then(function(){ H.notify('BDLocal lista.'); });
+  }
+
   function boot(){
     H.notify('Iniciando BDLocal...');
     var start = window.BDLocal && window.BDLocal.boot ? window.BDLocal.boot() : Promise.resolve();
     start.then(function(){
       bind();
       return window.BDLUIDashboard ? window.BDLUIDashboard.loadPeriodos() : [];
-    }).then(function(){
-      H.notify('BDLocal lista.');
-    }).catch(function(error){ H.notify(error && error.message ? error.message : String(error), 'error'); });
+    }).then(loadInitialData).catch(function(error){ H.notify(error && error.message ? error.message : String(error), 'error'); });
   }
 
   if(document.readyState === 'loading'){
