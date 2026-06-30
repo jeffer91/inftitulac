@@ -3,11 +3,13 @@ Nombre completo: coo.data.js
 Ruta o ubicación: /Requisitos/Coordi/coo.data.js
 Función o funciones:
 - Leer estudiantes de forma limpia para Coordi.
-- Usar primero snapshot local para no recargar pesado si no es necesario.
+- Usar snapshot local solo si realmente contiene estudiantes.
 - Filtrar estudiantes por período y división.
 - Normalizar cédula, nombres, carrera, período, división, correos y celular.
+- Evitar que un cache vacío bloquee la lectura real de BDLocal.
 Con qué se conecta:
 - BDLRepoEstudiantes.mirrorSnapshot()
+- BDLScreenCompat / snapshot local si está disponible
 - localStorage REQ_BDLOCAL_LEGACY_SNAPSHOT_V1
 - BL2DataEngine / ExcelLocalRepo como respaldo
 - BLPeriodosCanon
@@ -18,7 +20,7 @@ Con qué se conecta:
 (function(window){
   "use strict";
 
-  var VERSION = "1.0.0-coo-data.1";
+  var VERSION = "1.0.0-coo-data.2";
   var SNAPSHOT_KEYS = ["REQ_BDLOCAL_LEGACY_SNAPSHOT_V1", "REQ_EXCEL_LOCAL_V1:snapshot"];
 
   function text(value){return String(value == null ? "" : value).trim();}
@@ -35,7 +37,6 @@ Con qué se conecta:
       return true;
     });
   }
-  function clone(value){try{return JSON.parse(JSON.stringify(value));}catch(error){return value;}}
 
   function readJson(key){
     try{
@@ -50,11 +51,40 @@ Con qué se conecta:
     return null;
   }
 
+  function useful(snapshot){
+    return !!(snapshot && Array.isArray(snapshot.students) && snapshot.students.length > 0);
+  }
+
+  function keepUseful(snapshot){
+    return useful(snapshot) ? snapshot : null;
+  }
+
   function snapshotFromCache(){
     for(var i=0;i<SNAPSHOT_KEYS.length;i++){
       var snap = readJson(SNAPSHOT_KEYS[i]);
-      if(snap){return Promise.resolve(normalizeSnapshot(snap, "cache:" + SNAPSHOT_KEYS[i]));}
+      if(!snap){continue;}
+      var normalized = normalizeSnapshot(snap, "cache:" + SNAPSHOT_KEYS[i]);
+      if(useful(normalized)){return Promise.resolve(normalized);}
     }
+    return Promise.resolve(null);
+  }
+
+  function snapshotFromScreenCompat(){
+    try{
+      if(window.BDLScreenCompat){
+        if(typeof window.BDLScreenCompat.getSnapshot === "function"){
+          return Promise.resolve(window.BDLScreenCompat.getSnapshot()).then(function(snapshot){
+            return keepUseful(normalizeSnapshot(snapshot, "BDLScreenCompat"));
+          }).catch(function(error){
+            console.warn("[COOData] No se pudo leer BDLScreenCompat.getSnapshot", error);
+            return null;
+          });
+        }
+        if(window.BDLScreenCompat.snapshot){
+          return Promise.resolve(keepUseful(normalizeSnapshot(window.BDLScreenCompat.snapshot, "BDLScreenCompat.snapshot")));
+        }
+      }
+    }catch(error){}
     return Promise.resolve(null);
   }
 
@@ -62,7 +92,7 @@ Con qué se conecta:
     try{
       if(window.BDLRepoEstudiantes && typeof window.BDLRepoEstudiantes.mirrorSnapshot === "function"){
         return Promise.resolve(window.BDLRepoEstudiantes.mirrorSnapshot()).then(function(snapshot){
-          return normalizeSnapshot(snapshot, "BDLRepoEstudiantes");
+          return keepUseful(normalizeSnapshot(snapshot, "BDLRepoEstudiantes"));
         }).catch(function(error){
           console.warn("[COOData] No se pudo leer BDLRepoEstudiantes", error);
           return null;
@@ -76,7 +106,7 @@ Con qué se conecta:
     try{
       if(window.BL2DataEngine && typeof window.BL2DataEngine.listStudents === "function"){
         var result = window.BL2DataEngine.listStudents({matricula:"ACTIVO", limit:0}) || {};
-        return Promise.resolve(normalizeSnapshot({students:result.rows || [], periods:listPeriodsFromBL2()}, "BL2DataEngine"));
+        return Promise.resolve(keepUseful(normalizeSnapshot({students:result.rows || [], periods:listPeriodsFromBL2()}, "BL2DataEngine")));
       }
     }catch(error){
       console.warn("[COOData] No se pudo leer BL2DataEngine", error);
@@ -88,10 +118,10 @@ Con qué se conecta:
     try{
       if(window.ExcelLocalRepo){
         if(typeof window.ExcelLocalRepo.getSnapshot === "function"){
-          return Promise.resolve(normalizeSnapshot(window.ExcelLocalRepo.getSnapshot(), "ExcelLocalRepo"));
+          return Promise.resolve(keepUseful(normalizeSnapshot(window.ExcelLocalRepo.getSnapshot(), "ExcelLocalRepo")));
         }
         if(typeof window.ExcelLocalRepo.listAllStudents === "function"){
-          return Promise.resolve(normalizeSnapshot({students:window.ExcelLocalRepo.listAllStudents(), periods:listPeriodsFromExcel()}, "ExcelLocalRepo"));
+          return Promise.resolve(keepUseful(normalizeSnapshot({students:window.ExcelLocalRepo.listAllStudents(), periods:listPeriodsFromExcel()}, "ExcelLocalRepo")));
         }
       }
     }catch(error){
@@ -248,9 +278,19 @@ Con qué se conecta:
   function getSnapshot(options){
     options = options || {};
     if(options.refresh){
-      return snapshotFromBDLocal().then(function(snapshot){return snapshot || snapshotFromCache();}).then(function(snapshot){return snapshot || snapshotFromBL2();}).then(function(snapshot){return snapshot || snapshotFromExcelLocal();});
+      return snapshotFromBDLocal()
+        .then(function(snapshot){return snapshot || snapshotFromScreenCompat();})
+        .then(function(snapshot){return snapshot || snapshotFromCache();})
+        .then(function(snapshot){return snapshot || snapshotFromBL2();})
+        .then(function(snapshot){return snapshot || snapshotFromExcelLocal();})
+        .then(function(snapshot){return snapshot || normalizeSnapshot({students:[], periods:[]}, "sin datos");});
     }
-    return snapshotFromCache().then(function(snapshot){return snapshot || snapshotFromBDLocal();}).then(function(snapshot){return snapshot || snapshotFromBL2();}).then(function(snapshot){return snapshot || snapshotFromExcelLocal();}).then(function(snapshot){return snapshot || normalizeSnapshot({students:[], periods:[]}, "sin datos");});
+    return snapshotFromCache()
+      .then(function(snapshot){return snapshot || snapshotFromScreenCompat();})
+      .then(function(snapshot){return snapshot || snapshotFromBDLocal();})
+      .then(function(snapshot){return snapshot || snapshotFromBL2();})
+      .then(function(snapshot){return snapshot || snapshotFromExcelLocal();})
+      .then(function(snapshot){return snapshot || normalizeSnapshot({students:[], periods:[]}, "sin datos");});
   }
 
   function filterRows(students, options){
@@ -279,7 +319,8 @@ Con qué se conecta:
   function read(options){
     options = options || {};
     return getSnapshot(options).then(function(snapshot){
-      var baseRows = filterRows(snapshot.students, {periodId:options.periodId || options.periodoId || options.periodo || "", division:""});
+      var periodFilter = options.periodId || options.periodoId || options.periodo || "";
+      var baseRows = filterRows(snapshot.students, {periodId:periodFilter, division:""});
       var rows = filterRows(snapshot.students, options);
       return {
         source:snapshot.meta && snapshot.meta.source || "desconocido",
@@ -291,11 +332,12 @@ Con qué se conecta:
         diagnostics:{
           source:snapshot.meta && snapshot.meta.source || "desconocido",
           generatedAt:new Date().toISOString(),
-          filters:{periodId:options.periodId || options.periodoId || "", division:options.division || ""},
+          filters:{periodId:periodFilter, division:options.division || ""},
           totalSnapshotStudents:arr(snapshot.students).length,
           totalFilteredStudents:rows.length,
           totalPeriods:arr(snapshot.periods).length,
-          totalDivisions:listDivisions(baseRows).length
+          totalDivisions:listDivisions(baseRows).length,
+          cacheSkippedWhenEmpty:true
         }
       };
     });
@@ -310,6 +352,6 @@ Con qué se conecta:
     listDivisions:listDivisions,
     samePeriod:samePeriod,
     hasDivision:hasDivision,
-    helpers:{text:text,norm:norm,compact:compact,uniq:uniq,divisionOf:divisionOf,divisionsOf:divisionsOf}
+    helpers:{text:text,norm:norm,compact:compact,uniq:uniq,divisionOf:divisionOf,divisionsOf:divisionsOf,useful:useful}
   };
 })(window);
