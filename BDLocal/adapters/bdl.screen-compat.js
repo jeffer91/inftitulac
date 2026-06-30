@@ -97,7 +97,7 @@
 
   function rowSearch(row){
     row = row || {};
-    return norm([row.searchKey, row.numeroIdentificacion, row.cedula, row.Cedula, row.Nombres, row.nombres, row.nombreCarrera, row.NombreCarrera, row.carrera, row.Carrera, row.sede, row.Sede, studentDivision(row)].join(" "));
+    return norm([row.searchKey, row.numeroIdentificacion, row.cedula, row.Cedula, row.Nombres, row.nombres, row.nombreCarrera, row.NombreCarrera, row.carrera, row.Carrera, row.sede, row.Sede, studentDivision(row), row.correoPersonal, row.CorreoPersonal, row.correoInstitucional, row.CorreoInstitucional, row.correo, row.Correo, row.celular, row.Celular, row.telefono].join(" "));
   }
 
   function filterStudents(options){
@@ -130,6 +130,15 @@
   }
 
   function refresh(){
+    if(window.BDLRepoEstudiantes && typeof window.BDLRepoEstudiantes.mirrorSnapshot === "function"){
+      return window.BDLRepoEstudiantes.mirrorSnapshot().then(function(snapshot){
+        cache = normalizeSnapshot(snapshot || {});
+        return clone(cache);
+      }).catch(function(error){
+        console.warn("[BDLLegacyAdapter] No se pudo refrescar snapshot completo", error);
+        return clone(cache);
+      });
+    }
     if(!window.BDLRepoPeriodos || !window.BDLRepoEstudiantes){ return Promise.resolve(clone(cache)); }
     return Promise.all([
       window.BDLRepoPeriodos.listar().catch(function(){ return []; }),
