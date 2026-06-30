@@ -10,6 +10,7 @@
     if(g){ g.disabled = modo !== 'listo'; }
   }
   function periodo(){ return H.val('#bdlPeriodoSelect'); }
+  function periodoLabel(){ var s = H.one('#bdlPeriodoSelect'); return s && s.selectedOptions && s.selectedOptions[0] ? s.selectedOptions[0].textContent : periodo(); }
   function renderPreview(result){
     result = result || {};
     var preview = result.preview || {};
@@ -31,17 +32,13 @@
     if(!file){ H.notify('Seleccione un archivo Excel.', 'error'); return; }
     if(!window.CargaApp){ H.notify('CargaApp no disponible.', 'error'); return; }
     botones('ocupado');
-    return window.CargaApp.readFile(file, { periodoId:periodoId }).then(function(result){
+    return window.CargaApp.readFile(file, { periodoId:periodoId, periodoLabel:periodoLabel() }).then(function(result){
       listo = true;
       renderPreview(result);
       botones('listo');
       H.notify('Archivo analizado. Ahora puede guardar.');
       return result;
-    }).catch(function(error){
-      listo = false;
-      botones('inicio');
-      H.notify(error && error.message ? error.message : String(error), 'error');
-    });
+    }).catch(function(error){ listo = false; botones('inicio'); H.notify(error && error.message ? error.message : String(error), 'error'); });
   }
   function recargar(){
     var reload = window.BDLUIPeriodos ? window.BDLUIPeriodos.load() : Promise.resolve([]);
