@@ -4,6 +4,7 @@ Ruta o ubicacion: /Requisitos/sn-sacar-n/sn-sisacad-extractor.service.js
 Modulo: Sacar N
 Funcion o funciones:
 - Ejecutar la prueba visible con maximo tres estudiantes pendientes.
+- Ejecutar extraccion automatica con todos los estudiantes pendientes.
 - Enviar los estudiantes a Electron para busqueda y lectura en SISACAD.
 - Guardar notas, estados y novedades en la pantalla Sacar N.
 Con que se conecta:
@@ -42,13 +43,20 @@ Con que se conecta:
     return (snapshot.estudiantes || []).slice(0, cfg.pruebaVisibleCantidad || 3);
   }
 
-  function marcarProcesando(estudiantes){
+  function seleccionarPendientes(){
+    if(queue.pendientes){ return queue.pendientes(); }
+    var snapshot = state.get ? state.get() : {};
+    var pendiente = (cfg.estadosEstudiante && cfg.estadosEstudiante.pendiente) || "Pendiente";
+    return (snapshot.estudiantes || []).filter(function(item){ return !item.estado || item.estado === pendiente; });
+  }
+
+  function marcarProcesando(estudiantes, observacion){
     var estadoProcesando = (cfg.estadosEstudiante && cfg.estadosEstudiante.procesando) || "Procesando";
     estudiantes.forEach(function(estudiante){
       if(state.actualizarEstudiante){
         state.actualizarEstudiante(estudiante.id || estudiante.cedula, {
           estado: estadoProcesando,
-          observacion: "Incluido en prueba visible."
+          observacion: observacion || "Procesando en SISACAD."
         });
       }
     });
@@ -65,6 +73,12 @@ Con que se conecta:
     return normalizado;
   }
 
+  function aplicarResultados(respuesta){
+    var resultados = (respuesta && respuesta.resultados) || [];
+    resultados.forEach(aplicarResultado);
+    return resultados;
+  }
+
   function pruebaVisible(){
     var a = api();
     if(!a || typeof a.runPruebaVisible !== "function"){
@@ -78,12 +92,11 @@ Con que se conecta:
       return Promise.resolve({ ok:false, error:"Sin estudiantes" });
     }
 
-    marcarProcesando(estudiantes);
+    marcarProcesando(estudiantes, "Incluido en prueba visible.");
     setMensaje("Ejecutando prueba visible con " + estudiantes.length + " estudiantes. Observe la ventana de SISACAD.", cfg.estadosModulo ? cfg.estadosModulo.pruebaVisible : "prueba_visible");
 
     return a.runPruebaVisible(estudiantes).then(function(respuesta){
-      var resultados = (respuesta && respuesta.resultados) || [];
-      resultados.forEach(aplicarResultado);
+      aplicarResultados(respuesta);
       if(state.setModulo && cfg.estadosModulo){
         state.setModulo(cfg.estadosModulo.listo, (respuesta && respuesta.mensaje) || "Prueba visible finalizada.");
       }
@@ -94,8 +107,40 @@ Con que se conecta:
     });
   }
 
+  function extraccionAutomatica(){
+    var a = api();
+    if(!a || typeof a.runExtraccionAutomatica !== "function"){
+      setMensaje("La extraccion automatica solo esta disponible en Electron. Abra Requisitos con npm start.", cfg.estadosModulo ? cfg.estadosModulo.errorCritico : "error_critico");
+      return Promise.resolve({ ok:false, error:"Electron no disponible" });
+    }
+
+    var estudiantes = seleccionarPendientes();
+    if(!estudiantes.length){
+      setMensaje("No hay estudiantes pendientes para extraccion automatica.", cfg.estadosModulo ? cfg.estadosModulo.listo : "listo");
+      return Promise.resolve({ ok:false, error:"Sin estudiantes pendientes" });
+    }
+
+    marcarProcesando(estudiantes, "Incluido en extraccion automatica.");
+    setMensaje("Ejecutando extraccion automatica con " + estudiantes.length + " estudiantes. No cierre SISACAD.", cfg.estadosModulo ? cfg.estadosModulo.extrayendo : "extrayendo");
+
+    return a.runExtraccionAutomatica(estudiantes).then(function(respuesta){
+      aplicarResultados(respuesta);
+      if(respuesta && respuesta.pausado){
+        setMensaje(respuesta.mensaje || "Extraccion pausada. Revise SISACAD y continue despues.", cfg.estadosModulo ? cfg.estadosModulo.pausado : "pausado");
+      }else if(state.setModulo && cfg.estadosModulo){
+        state.setModulo(cfg.estadosModulo.finalizado, (respuesta && respuesta.mensaje) || "Extraccion automatica finalizada.");
+      }
+      return respuesta;
+    }).catch(function(error){
+      setMensaje("Error en extraccion automatica: " + error.message, cfg.estadosModulo ? cfg.estadosModulo.errorCritico : "error_critico");
+      return { ok:false, error:error.message };
+    });
+  }
+
   window.SNSisacadExtractor = {
     pruebaVisible: pruebaVisible,
-    seleccionarPrueba: seleccionarPrueba
+    extraccionAutomatica: extraccionAutomatica,
+    seleccionarPrueba: seleccionarPrueba,
+    seleccionarPendientes: seleccionarPendientes
   };
 })(window);
