@@ -4,14 +4,16 @@ Nombre completo: sn-sacar-n.html
 Ruta o ubicacion: /Requisitos/sn-sacar-n/sn-sacar-n.html
 Modulo: Sacar N
 Funcion o funciones:
-- Mostrar la pantalla base del modulo Sacar N.
-- Preparar filtros, botones, resumen y tabla para los siguientes bloques.
-- No ejecutar todavia lectura de BDLocal ni automatizacion de SISACAD.
+- Mostrar la pantalla visual completa del modulo Sacar N.
+- Preparar filtros, botones, resumen, tabla, novedades y ayuda operativa.
+- Mantener la pantalla lista para cargar estudiantes en el siguiente bloque.
 Con que se conecta:
 - sn-sacar-n.css
 - sn-config.js
 - sn-models.js
 - sn-state.service.js
+- sn-ui-render.service.js
+- sn-ui-events.service.js
 - sn-sacar-n.js
 ========================================================= -->
 <html lang="es">
@@ -26,19 +28,25 @@ Con que se conecta:
     <header class="sn-header">
       <div>
         <h1 id="snTitle" class="sn-title">Sacar N</h1>
-        <p class="sn-subtitle">Modulo para extraer notas de proyecto desde SISACAD en modo visible y luego automatico.</p>
+        <p class="sn-subtitle">Extrae notas de proyecto desde SISACAD: primero prueba visible y luego extracción automática controlada.</p>
       </div>
-      <div class="sn-pill">
-        <span id="snVersion">v0.1.0</span>
-        <span>·</span>
-        <span id="snModuloEstado">sin_iniciar</span>
+      <div class="sn-header-actions">
+        <span class="sn-pill"><span id="snVersion">v0.1.0</span></span>
+        <span class="sn-pill">Estado: <strong id="snModuloEstado">sin_iniciar</strong></span>
       </div>
     </header>
 
-    <section class="sn-card" style="margin-bottom:14px">
-      <h2>Configuracion inicial</h2>
+    <section class="sn-card sn-main-card">
+      <div class="sn-card-head">
+        <div>
+          <h2>1. Selección de estudiantes</h2>
+          <p>En el siguiente bloque estos filtros se llenarán desde BDLocal.</p>
+        </div>
+        <span class="sn-pill">Fuente: Requisitos + SISACAD</span>
+      </div>
+
       <div class="sn-filters">
-        <label class="sn-field">Periodo academico
+        <label class="sn-field">Período académico
           <select id="snPeriodo" class="sn-select" disabled>
             <option value="">Pendiente conectar a BDLocal</option>
           </select>
@@ -54,7 +62,7 @@ Con que se conecta:
           </select>
         </label>
         <label class="sn-field">Buscar
-          <input id="snBuscar" class="sn-input" type="search" placeholder="Cedula o nombre" disabled>
+          <input id="snBuscar" class="sn-input" type="search" placeholder="Cédula o nombre" disabled>
         </label>
       </div>
 
@@ -62,31 +70,32 @@ Con que se conecta:
         <button id="snBtnCargarEstudiantes" class="sn-btn primary" type="button">Cargar estudiantes</button>
         <button id="snBtnAbrirSisacad" class="sn-btn" type="button">Abrir SISACAD</button>
         <button id="snBtnPruebaVisible" class="sn-btn" type="button">Prueba visible</button>
-        <button id="snBtnContinuarAutomatico" class="sn-btn primary" type="button">Continuar automatico</button>
+        <button id="snBtnContinuarAutomatico" class="sn-btn primary" type="button">Continuar automático</button>
         <button id="snBtnPausar" class="sn-btn ghost" type="button">Pausar</button>
         <button id="snBtnContinuar" class="sn-btn ghost" type="button">Continuar</button>
         <button id="snBtnExportar" class="sn-btn" type="button">Exportar Excel</button>
         <button id="snBtnVerNovedades" class="sn-btn" type="button">Ver novedades</button>
-        <button id="snBtnResetBase" class="sn-btn ghost" type="button">Reiniciar estado base</button>
+        <button id="snBtnResetBase" class="sn-btn ghost" type="button">Reiniciar estado</button>
       </div>
     </section>
 
-    <section class="sn-grid">
-      <article class="sn-card">
+    <section class="sn-grid sn-info-grid">
+      <article class="sn-card sn-info-card">
         <h2>SISACAD</h2>
-        <p>URL configurada: <strong id="snSisacadUrl">https://sisacad.itsqmet.edu.ec/</strong></p>
+        <p>URL configurada:</p>
+        <strong id="snSisacadUrl">https://sisacad.itsqmet.edu.ec/</strong>
       </article>
-      <article class="sn-card">
-        <h2>Modo seguro</h2>
-        <p>Solo lectura. No modifica notas, no elimina datos y no guarda contrasenas visibles.</p>
+      <article class="sn-card sn-info-card">
+        <h2>Regla segura</h2>
+        <p>Solo lectura: no modifica notas, no elimina datos y no guarda contraseñas visibles.</p>
       </article>
-      <article class="sn-card">
+      <article class="sn-card sn-info-card">
         <h2>Prueba visible</h2>
-        <p>Primero se probara con pocos estudiantes para confirmar que la lectura sea correcta.</p>
+        <p>Primero se probará con pocos estudiantes para confirmar que lee bien.</p>
       </article>
-      <article class="sn-card">
-        <h2>Automatizacion</h2>
-        <p>Despues de la prueba visible, la extraccion completa se ejecutara de forma controlada.</p>
+      <article class="sn-card sn-info-card">
+        <h2>Novedades al final</h2>
+        <p>Los errores pequeños se guardan y se muestran al terminar.</p>
       </article>
     </section>
 
@@ -99,47 +108,86 @@ Con que se conecta:
       <div class="sn-stat"><strong id="snErrores">0</strong><span>Errores / revisar</span></div>
     </section>
 
-    <section class="sn-card" style="margin-bottom:14px">
+    <section class="sn-card sn-progress-card">
       <div class="sn-row" style="justify-content:space-between">
-        <h2 style="margin:0">Avance</h2>
-        <span id="snAvanceTexto" class="sn-pill">0 / 0 procesados</span>
+        <h2 style="margin:0">2. Avance de extracción</h2>
+        <div class="sn-row">
+          <span id="snAvanceTexto" class="sn-pill">0 / 0 procesados</span>
+          <span id="snPorcentajeTexto" class="sn-pill">0%</span>
+        </div>
       </div>
       <div class="sn-progress"><div id="snProgressBar" class="sn-progress-bar"></div></div>
-      <div id="snMensaje" class="sn-alert" style="margin-top:12px">Modulo base creado. Pendiente conectar al menu y a BDLocal.</div>
+      <div id="snMensaje" class="sn-alert" style="margin-top:12px">Pantalla visual lista. Pendiente cargar estudiantes desde BDLocal.</div>
     </section>
 
-    <section class="sn-card">
-      <h2>Tabla de trabajo</h2>
-      <div class="sn-table-wrap">
-        <table class="sn-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Cedula</th>
-              <th>Estudiante</th>
-              <th>Carrera</th>
-              <th>Trabajo escrito</th>
-              <th>Defensa oral</th>
-              <th>Nota final</th>
-              <th>Estado</th>
-              <th>Observacion</th>
-            </tr>
-          </thead>
-          <tbody id="snTablaBody">
-            <tr><td class="sn-empty" colspan="9">Cargando pantalla base...</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <section class="sn-layout">
+      <section class="sn-card sn-table-card">
+        <div class="sn-card-head">
+          <div>
+            <h2>3. Tabla de trabajo</h2>
+            <p>Mostrará cédula, estudiante, carrera, período, las 3 notas y el estado de extracción.</p>
+          </div>
+        </div>
+        <div class="sn-table-wrap">
+          <table class="sn-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Cédula</th>
+                <th>Estudiante</th>
+                <th>Carrera</th>
+                <th>Período</th>
+                <th>Trabajo escrito</th>
+                <th>Defensa oral</th>
+                <th>Nota final</th>
+                <th>Estado</th>
+                <th>Observación</th>
+              </tr>
+            </thead>
+            <tbody id="snTablaBody">
+              <tr><td class="sn-empty" colspan="10">Cargando pantalla visual...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="sn-card sn-side-card">
+        <h2>Flujo correcto</h2>
+        <ol class="sn-steps">
+          <li>Cargar estudiantes</li>
+          <li>Abrir SISACAD</li>
+          <li>Hacer prueba visible</li>
+          <li>Continuar automático</li>
+          <li>Revisar novedades</li>
+          <li>Exportar Excel</li>
+        </ol>
+        <div class="sn-alert warning">Si SISACAD cierra sesión, el proceso debe pausarse y permitir continuar.</div>
+      </aside>
     </section>
+
+    <aside id="snNovedadesPanel" class="sn-panel" aria-hidden="true">
+      <div class="sn-panel-head">
+        <div>
+          <h2>Novedades</h2>
+          <p>Errores, estudiantes sin notas o casos para revisión manual.</p>
+        </div>
+        <button id="snBtnCerrarNovedades" class="sn-btn ghost" type="button">Cerrar</button>
+      </div>
+      <div id="snNovedadesBody" class="sn-panel-body">
+        <div class="sn-empty-box">Sin novedades registradas.</div>
+      </div>
+    </aside>
 
     <footer class="sn-footer">
-      Bloque 1: estructura base del modulo Sacar N.
+      Bloque 3: pantalla visual completa del módulo Sacar N.
     </footer>
   </div>
 
   <script src="sn-config.js"></script>
   <script src="sn-models.js"></script>
   <script src="sn-state.service.js"></script>
+  <script src="sn-ui-render.service.js"></script>
+  <script src="sn-ui-events.service.js"></script>
   <script src="sn-sacar-n.js"></script>
 </body>
 </html>
