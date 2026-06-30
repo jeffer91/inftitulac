@@ -4,13 +4,42 @@
   var H = window.BDLUIH;
   if(!H){ throw new Error("BDLUIH debe cargarse antes de BDLUIDivisiones."); }
 
-  var state = { periodoId:"", periodos:[], config:{ divisiones:[] }, carreras:[], selected:"", selectedCarreras:[] };
+  var state = { periodoId:"", periodos:[], config:{ divisiones:[] }, carreras:[], selected:"" };
 
   function keyList(list){ return Array.isArray(list) ? list : []; }
   function divs(){ return state.config.divisiones || []; }
   function selectedDiv(){ return divs().filter(function(d){ return d.nombre === state.selected; })[0] || null; }
   function periodLabel(row){ return String(row && (row.periodoLabel || row.label || row.periodoId || row.id) || ""); }
   function periodId(row){ return String(row && (row.periodoId || row.id || row.value) || ""); }
+  function cleanText(value){ return String(value == null ? "" : value).replace(/\s+/g," ").trim(); }
+  function cleanName(value){ return cleanText(value).toUpperCase(); }
+  function cleanKey(value){ return cleanText(value).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]+/g,"_").replace(/^_+|_+$/g,""); }
+
+  function normalizeCarreras(rows){
+    var map = {};
+    (Array.isArray(rows) ? rows : []).forEach(function(c){
+      var key = cleanKey(c && c.key || c && c.nombre || c && c.codigo || "");
+      if(!key){ return; }
+      if(!map[key]){ map[key] = { key:key, nombre:cleanName(c.nombre || key), codigo:cleanText(c.codigo || "") }; }
+    });
+    return Object.keys(map).map(function(k){ return map[k]; }).sort(function(a,b){ return a.nombre.localeCompare(b.nombre,"es"); });
+  }
+
+  function normalizeConfig(config){
+    config = config || { periodoId:state.periodoId, divisiones:[] };
+    var valid = {};
+    state.carreras.forEach(function(c){ valid[c.key] = true; });
+    var map = {};
+    (Array.isArray(config.divisiones) ? config.divisiones : []).forEach(function(d){
+      var name = cleanName(d && d.nombre);
+      if(!name){ return; }
+      if(!map[name]){ map[name] = { nombre:name, carreras:[] }; }
+      keyList(d.carreras).forEach(function(k){ k = cleanKey(k); if(k && valid[k] && map[name].carreras.indexOf(k) < 0){ map[name].carreras.push(k); } });
+    });
+    state.config = { periodoId:state.periodoId, divisiones:Object.keys(map).map(function(k){ return map[k]; }) };
+    if(state.selected){ state.selected = cleanName(state.selected); }
+  }
+
   function assignedMap(ignoreSelected){
     var map = {};
     divs().forEach(function(d){
@@ -18,6 +47,12 @@
       keyList(d.carreras).forEach(function(k){ map[k] = d.nombre; });
     });
     return map;
+  }
+
+  function countAssigned(){
+    var map = {};
+    divs().forEach(function(d){ keyList(d.carreras).forEach(function(k){ map[k] = true; }); });
+    return Object.keys(map).length;
   }
 
   function injectPeriodFilter(){
@@ -39,16 +74,43 @@
     body.insertBefore(bar, namebar);
   }
 
+  function injectSummary(){
+    if(H.one('#bdlDivSummary')){ return; }
+    var body = H.one('#bdlDivModal .bdl-modal-body');
+    var namebar = H.one('#bdlDivModal .bdl-division-namebar');
+    if(!body || !namebar){ return; }
+    var box = document.createElement('div');
+    box.id = 'bdlDivSummary';
+    box.style.display = 'grid';
+    box.style.gridTemplateColumns = 'repeat(4,minmax(0,1fr))';
+    box.style.gap = '8px';
+    box.innerHTML = '<div class="bdl-stat"><strong id="bdlDivTotalCarreras">0</strong><span>Carreras del período</span></div><div class="bdl-stat"><strong id="bdlDivTotalDivisiones">0</strong><span>Divisiones creadas</span></div><div class="bdl-stat"><strong id="bdlDivTotalAsignadas">0</strong><span>Carreras asignadas</span></div><div class="bdl-stat"><strong id="bdlDivSelectedCount">0</strong><span>Carreras en división actual</span></div>';
+    body.insertBefore(box, namebar);
+  }
+
+  function updateSummary(){
+    injectSummary();
+    var current = selectedDiv();
+    var assigned = countAssigned();
+    var selectedCount = current ? keyList(current.carreras).length : 0;
+    if(H.one('#bdlDivTotalCarreras')){ H.one('#bdlDivTotalCarreras').textContent = String(state.carreras.length); }
+    if(H.one('#bdlDivTotalDivisiones')){ H.one('#bdlDivTotalDivisiones').textContent = String(divs().length); }
+    if(H.one('#bdlDivTotalAsignadas')){ H.one('#bdlDivTotalAsignadas').textContent = String(assigned); }
+    if(H.one('#bdlDivSelectedCount')){ H.one('#bdlDivSelectedCount').textContent = String(selectedCount); }
+  }
+
   function ajustarModalVisual(){
     var modal = H.one('#bdlDivModal');
     var card = H.one('#bdlDivModal .bdl-modal-card');
     var body = H.one('#bdlDivModal .bdl-modal-body');
     var layout = H.one('#bdlDivModal .bdl-div-layout');
+    var summary = H.one('#bdlDivSummary');
     var lists = [H.one('#bdlDivList'), H.one('#bdlDivAvailable'), H.one('#bdlDivAssigned')];
     if(modal){ modal.style.overflow = 'hidden'; modal.style.alignItems = 'center'; modal.style.justifyContent = 'center'; }
     if(card){ card.style.width = 'min(980px, calc(100vw - 28px))'; card.style.maxHeight = 'calc(100vh - 28px)'; card.style.display = 'flex'; card.style.flexDirection = 'column'; }
     if(body){ body.style.overflow = 'auto'; body.style.maxHeight = 'calc(100vh - 155px)'; body.style.minHeight = '0'; }
     if(layout){ layout.style.gridTemplateColumns = window.innerWidth < 980 ? '1fr' : '220px minmax(220px, 1fr) minmax(220px, 1fr)'; layout.style.gap = '10px'; }
+    if(summary){ summary.style.gridTemplateColumns = window.innerWidth < 850 ? 'repeat(2,minmax(0,1fr))' : 'repeat(4,minmax(0,1fr))'; }
     lists.forEach(function(el){ if(el){ el.style.maxHeight = window.innerWidth < 980 ? '230px' : '46vh'; el.style.overflow = 'auto'; el.style.minHeight = '150px'; } });
   }
 
@@ -62,6 +124,7 @@
     if(H.one('#bdlDivAvailable')){ H.one('#bdlDivAvailable').innerHTML = '<div class="bdl-empty">Seleccione un período.</div>'; }
     if(H.one('#bdlDivAssigned')){ H.one('#bdlDivAssigned').innerHTML = '<div class="bdl-empty">Seleccione un período.</div>'; }
     if(H.one('#bdlDivName')){ H.one('#bdlDivName').value = ''; }
+    updateSummary();
     ajustarModalVisual();
   }
 
@@ -79,9 +142,7 @@
   }
 
   function loadPeriodos(preferred){
-    if(!window.BDLRepoPeriodos || typeof window.BDLRepoPeriodos.listar !== 'function'){
-      return Promise.resolve([]);
-    }
+    if(!window.BDLRepoPeriodos || typeof window.BDLRepoPeriodos.listar !== 'function'){ return Promise.resolve([]); }
     return window.BDLRepoPeriodos.listar().then(function(rows){
       state.periodos = rows || [];
       var found = preferred && state.periodos.some(function(p){ return periodId(p) === preferred; });
@@ -97,14 +158,13 @@
     if(!state.periodoId){ box.innerHTML = '<div class="bdl-empty">Seleccione un período para empezar.</div>'; return; }
     if(!divs().length){ box.innerHTML = '<div class="bdl-empty">Cree una división para este período.</div>'; return; }
     box.innerHTML = divs().map(function(d){
-      return '<button type="button" class="bdl-div-item '+(d.nombre===state.selected?'active':'')+'" data-div="'+H.esc(d.nombre)+'"><strong>'+H.esc(d.nombre)+'</strong><span>'+keyList(d.carreras).length+' carreras</span></button>';
+      return '<button type="button" class="bdl-div-item '+(d.nombre===state.selected?'active':'')+'" data-div="'+H.esc(d.nombre)+'"><strong>'+H.esc(d.nombre)+'</strong><span>Carreras por división: '+keyList(d.carreras).length+'</span></button>';
     }).join("");
-    Array.prototype.slice.call(box.querySelectorAll('[data-div]')).forEach(function(btn){
-      btn.addEventListener('click', function(){ select(btn.getAttribute('data-div')); });
-    });
+    Array.prototype.slice.call(box.querySelectorAll('[data-div]')).forEach(function(btn){ btn.addEventListener('click', function(){ select(btn.getAttribute('data-div')); }); });
   }
 
   function renderCarreras(){
+    normalizeConfig(state.config);
     var avail = H.one('#bdlDivAvailable');
     var assigned = H.one('#bdlDivAssigned');
     var current = selectedDiv();
@@ -127,12 +187,11 @@
     }
     bindCards();
     renderDivisiones();
+    updateSummary();
     ajustarModalVisual();
   }
 
-  function card(c){
-    return '<button type="button" draggable="true" class="bdl-career-card" data-career="'+H.esc(c.key)+'"><strong>'+H.esc(c.nombre)+'</strong><span>'+H.esc(c.codigo || '')+'</span></button>';
-  }
+  function card(c){ return '<button type="button" draggable="true" class="bdl-career-card" data-career="'+H.esc(c.key)+'"><strong>'+H.esc(cleanName(c.nombre))+'</strong><span>'+H.esc(c.codigo || '')+'</span></button>'; }
 
   function bindCards(){
     Array.prototype.slice.call(document.querySelectorAll('[data-career]')).forEach(function(el){
@@ -144,6 +203,7 @@
   function toggleCareer(key){
     if(!state.periodoId){ H.notify('Primero seleccione un período.', 'error'); return; }
     if(!state.selected){ H.notify('Primero cree o seleccione una división.', 'error'); return; }
+    key = cleanKey(key);
     var current = selectedDiv();
     if(!current){ return; }
     current.carreras = keyList(current.carreras);
@@ -157,16 +217,17 @@
 
   function createOrSelect(){
     if(!state.periodoId){ H.notify('Primero seleccione un período.', 'error'); return; }
-    var name = H.val('#bdlDivName').trim();
+    var name = cleanName(H.val('#bdlDivName'));
     if(!name){ H.notify('Ingrese el nombre de la división.', 'error'); return; }
     var current = selectedDiv();
     if(current){ current.nombre = name; state.selected = name; }
     else if(!divs().some(function(d){ return d.nombre === name; })){ divs().push({ nombre:name, carreras:[] }); state.selected = name; }
     else { state.selected = name; }
     renderCarreras();
+    H.notify('División ' + name + ' lista. Ahora seleccione sus carreras.');
   }
 
-  function select(name){ state.selected = name || ''; renderCarreras(); }
+  function select(name){ state.selected = cleanName(name || ''); renderCarreras(); }
 
   function removeSelected(){
     if(!state.periodoId){ H.notify('Primero seleccione un período.', 'error'); return; }
@@ -179,10 +240,9 @@
   function save(){
     if(!state.periodoId){ H.notify('Seleccione un período.', 'error'); return; }
     if(!window.BDLRepoDivisiones){ H.notify('Repositorio de divisiones no disponible.', 'error'); return; }
+    normalizeConfig(state.config);
     H.notify('Guardando divisiones del período ' + state.periodoId + '...');
-    return window.BDLRepoDivisiones.saveConfig(state.periodoId, state.config).then(function(saved){
-      return window.BDLRepoDivisiones.aplicarConfiguracion(state.periodoId, saved);
-    }).then(function(result){
+    return window.BDLRepoDivisiones.saveConfig(state.periodoId, state.config).then(function(saved){ return window.BDLRepoDivisiones.aplicarConfiguracion(state.periodoId, saved); }).then(function(result){
       close();
       var tasks = [];
       var mainSel = H.one('#bdlPeriodoSelect');
@@ -201,10 +261,10 @@
     renderPeriodos();
     if(H.one('#bdlDivPeriodo')){ H.one('#bdlDivPeriodo').textContent = periodo; }
     return Promise.all([window.BDLRepoDivisiones.getConfig(periodo), window.BDLRepoDivisiones.carrerasPorPeriodo(periodo)]).then(function(parts){
+      state.carreras = normalizeCarreras(parts[1] || []);
       state.config = parts[0] || { periodoId:periodo, divisiones:[] };
       state.config.periodoId = periodo;
-      state.config.divisiones = state.config.divisiones || [];
-      state.carreras = parts[1] || [];
+      normalizeConfig(state.config);
       renderCarreras();
       if(!state.carreras.length){ H.notify('El período seleccionado no tiene carreras cargadas todavía.', 'error'); }
     }).catch(function(error){ H.notify(error && error.message ? error.message : String(error), 'error'); });
@@ -222,6 +282,7 @@
   function open(){
     var modal = H.one('#bdlDivModal');
     injectPeriodFilter();
+    injectSummary();
     if(!window.BDLRepoDivisiones){ H.notify('Repositorio de divisiones no disponible.', 'error'); return; }
     var preferred = H.val('#bdlPeriodoSelect') || (window.BDLState && window.BDLState.getPeriodoActivo ? window.BDLState.getPeriodoActivo() : '');
     if(modal){ modal.classList.add('open'); }
@@ -235,6 +296,7 @@
   function close(){ var modal = H.one('#bdlDivModal'); if(modal){ modal.classList.remove('open'); } }
   function setupDrop(){
     injectPeriodFilter();
+    injectSummary();
     var sel = H.one('#bdlDivPeriodoSelect');
     if(sel){ sel.addEventListener('change', function(){ changePeriodo(sel.value); }); }
     ['#bdlDivAvailable','#bdlDivAssigned'].forEach(function(selName){
