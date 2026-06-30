@@ -92,6 +92,7 @@
     "continuity/router/cont.route.fallback.js",
     "continuity/guardian/cont.guardian.js",
     "continuity/cont.index.js",
+    "connections/shared/conn.audit.js",
     "adapters/bdl.screen-compat.js",
     "adapters/bdl.screen-autorefresh.js"
   ];
