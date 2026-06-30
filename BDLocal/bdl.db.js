@@ -6,9 +6,7 @@
   var db = null;
   var opening = null;
 
-  if(!cfg || !schema){
-    throw new Error("BDLConfig y BDLSchema deben cargarse antes de BDLDB.");
-  }
+  if(!cfg || !schema){ throw new Error("BDLConfig y BDLSchema deben cargarse antes de BDLDB."); }
 
   function req(request){
     return new Promise(function(resolve, reject){
@@ -20,51 +18,27 @@
   function open(){
     if(db){ return Promise.resolve(db); }
     if(opening){ return opening; }
-
     opening = new Promise(function(resolve, reject){
       var request = window.indexedDB.open(cfg.dbName, cfg.dbVersion);
-
       request.onupgradeneeded = function(event){
         var current = event.target.result;
         schema.list().forEach(function(def){
           var store = current.objectStoreNames.contains(def.name) ? event.target.transaction.objectStore(def.name) : current.createObjectStore(def.name, { keyPath: def.keyPath });
           (def.indexes || []).forEach(function(index){
-            if(!store.indexNames.contains(index.name)){
-              store.createIndex(index.name, index.keyPath, { unique: index.unique });
-            }
+            if(!store.indexNames.contains(index.name)){ store.createIndex(index.name, index.keyPath, { unique: index.unique }); }
           });
         });
       };
-
-      request.onsuccess = function(event){
-        db = event.target.result;
-        opening = null;
-        resolve(db);
-      };
-
-      request.onerror = function(){
-        opening = null;
-        reject(request.error || new Error("No se pudo abrir BDLocal"));
-      };
+      request.onsuccess = function(event){ db = event.target.result; opening = null; resolve(db); };
+      request.onerror = function(){ opening = null; reject(request.error || new Error("No se pudo abrir BDLocal")); };
     });
-
     return opening;
   }
 
-  function store(name, mode){
-    return open().then(function(current){
-      return current.transaction(name, mode || "readonly").objectStore(name);
-    });
-  }
-
-  function get(name, key){
-    return store(name).then(function(s){ return req(s.get(key)); });
-  }
-
-  function put(name, value){
-    return store(name, "readwrite").then(function(s){ return req(s.put(value)); });
-  }
-
+  function store(name, mode){ return open().then(function(current){ return current.transaction(name, mode || "readonly").objectStore(name); }); }
+  function get(name, key){ return store(name).then(function(s){ return req(s.get(key)); }); }
+  function put(name, value){ return store(name, "readwrite").then(function(s){ return req(s.put(value)); }); }
+  function remove(name, key){ return store(name, "readwrite").then(function(s){ return req(s.delete(key)); }); }
   function list(name, options){
     options = options || {};
     return open().then(function(current){
@@ -78,7 +52,6 @@
         var limit = Number(options.limit || 0);
         var offset = Number(options.offset || 0);
         var request = source.openCursor(range);
-
         request.onsuccess = function(event){
           var cursor = event.target.result;
           if(!cursor){ resolve(rows); return; }
@@ -90,16 +63,7 @@
       });
     });
   }
+  function clear(name){ return store(name, "readwrite").then(function(s){ return req(s.clear()); }); }
 
-  function clear(name){
-    return store(name, "readwrite").then(function(s){ return req(s.clear()); });
-  }
-
-  window.BDLDB = {
-    open: open,
-    get: get,
-    put: put,
-    list: list,
-    clear: clear
-  };
+  window.BDLDB = { open:open, get:get, put:put, remove:remove, list:list, clear:clear };
 })(window);
