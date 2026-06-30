@@ -3,7 +3,7 @@ Nombre completo: panel.diagnostics.js
 Ruta: /BDLocal/ui/panels/panel.diagnostics.js
 Función:
 - Mostrar diagnóstico del motor de continuidad.
-- Incluir auditoría de conexiones, procesos y subprocesos de la pantalla actual.
+- Incluir auditoría de conexiones, procesos, subprocesos, variables y botones.
 ========================================================= */
 (function(window, document){
   "use strict";
@@ -15,11 +15,13 @@ Función:
     if(!box){ return; }
     var continuity = window.BDLContinuity && typeof window.BDLContinuity.status === "function" ? window.BDLContinuity.status() : { ok:false, message:"Motor no disponible" };
     var audit = window.BDLConnectionAudit && typeof window.BDLConnectionAudit.audit === "function" ? window.BDLConnectionAudit.audit() : { ok:false, message:"Auditor de conexiones no disponible" };
+    var flow = window.BDLFlowAudit && typeof window.BDLFlowAudit.audit === "function" ? window.BDLFlowAudit.audit() : { ok:false, message:"Auditor de flujo no disponible" };
     box.textContent = safeJson({
-      ok: !!(continuity && continuity.ok) && !!(audit && audit.ok),
+      ok: !!(continuity && continuity.ok) && !!(audit && audit.ok) && !!(flow && flow.ok),
       generatedAt: new Date().toISOString(),
       continuity: continuity,
-      audit: audit
+      audit: audit,
+      flow: flow
     });
   }
 
