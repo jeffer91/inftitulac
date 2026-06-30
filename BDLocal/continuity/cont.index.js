@@ -2,30 +2,46 @@
 Nombre completo: cont.index.js
 Ruta: /BDLocal/continuity/cont.index.js
 Función:
-- Punto de entrada futuro del motor automático de continuidad.
-- No ejecuta sincronizaciones todavía.
-- Deja preparado el namespace seguro para próximos bloques.
+- Punto de entrada del motor automático de continuidad.
+- Expone estado, creación de eventos y verificación manual.
+- No reemplaza todavía la sincronización actual.
 ========================================================= */
 (function(window){
   "use strict";
 
-  if(window.BDLContinuity){ return; }
-
-  var VERSION = "0.1.0-prep";
+  var VERSION = "0.2.0-guardian";
 
   function status(){
+    var guardian = window.BDLContGuardian && typeof window.BDLContGuardian.status === "function" ? window.BDLContGuardian.status() : { mode:"preparado", activeTarget:"firebase" };
+    var health = window.BDLContHealthRepo && typeof window.BDLContHealthRepo.list === "function" ? window.BDLContHealthRepo.list() : [];
+    var events = window.BDLContEventRepo && typeof window.BDLContEventRepo.list === "function" ? window.BDLContEventRepo.list() : [];
     return {
       ok: true,
       version: VERSION,
       module: "BDLContinuity",
-      mode: "preparado",
-      message: "Motor de continuidad preparado. Aún no está conectado al flujo real.",
+      guardian: guardian,
+      health: health,
+      eventsCount: events.length,
       updatedAt: new Date().toISOString()
     };
   }
 
+  function createEvent(input){
+    if(!window.BDLContEventCreate){ throw new Error("BDLContEventCreate no está disponible."); }
+    return window.BDLContEventCreate.create(input || {});
+  }
+
+  function checkNow(){
+    if(!window.BDLContGuardian || typeof window.BDLContGuardian.checkNow !== "function"){
+      return Promise.resolve({ ok:false, message:"SyncGuardian no está disponible." });
+    }
+    return window.BDLContGuardian.checkNow();
+  }
+
   window.BDLContinuity = {
     version: VERSION,
-    status: status
+    status: status,
+    createEvent: createEvent,
+    checkNow: checkNow
   };
 })(window);
