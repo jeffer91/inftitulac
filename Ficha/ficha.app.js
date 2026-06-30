@@ -11,6 +11,7 @@ Función o funciones:
 - Mostrar encabezado en filas: cédula, carrera y período normalizado.
 - Renderizar y guardar modalidadTitulacion para Infor.
 - Evitar construcción pesada duplicada al abrir la pantalla.
+- Refrescarse automáticamente cuando BDLocal actualiza el snapshot.
 Con qué se conecta:
 - ficha.core.js
 - ficha.export.js
@@ -19,7 +20,7 @@ Con qué se conecta:
 (function(window, document){
   "use strict";
 
-  var state = {periodId:"", division:"", matricula:"ACTIVO", search:"", rows:[], selectedId:"", renderTimer:null, divisionKey:"", divisionOptions:[], listBound:false};
+  var state = {periodId:"", division:"", matricula:"ACTIVO", search:"", rows:[], selectedId:"", renderTimer:null, refreshTimer:null, divisionKey:"", divisionOptions:[], listBound:false, bdlocalBound:false};
 
   function el(id){return document.getElementById(id);}
   function text(v){return String(v == null ? "" : v).trim();}
@@ -89,13 +90,32 @@ Con qué se conecta:
   }
 
   function select(id){state.selectedId = id || "";renderList();renderDetail(selectedFromRows());}
-  function render(reason){try{fillFilters();state.rows = window.FichaCore.filter({periodId:state.periodId, division:state.division, matricula:state.matricula, search:state.search, limit:400});if(!state.rows.some(function(x){return x._id === state.selectedId;})){state.selectedId = state.rows[0] ? state.rows[0]._id : "";}renderList();renderDetail(selectedFromRows());status("Ficha cargada por " + sourceLabel() + ". Matrícula: " + (state.matricula || "Todos") + ". División: " + (state.division || "Todas") + ". Resultados: " + state.rows.length + ".", "ok");}catch(e){console.error("[Ficha]", e);status(e.message || String(e), "warn");}}
+  function render(reason){try{fillFilters();state.rows = window.FichaCore.filter({periodId:state.periodId, division:state.division, matricula:state.matricula, search:state.search, limit:400, force:reason === "bdlocal-refresh"});if(!state.rows.some(function(x){return x._id === state.selectedId;})){state.selectedId = state.rows[0] ? state.rows[0]._id : "";}renderList();renderDetail(selectedFromRows());status("Ficha cargada por " + sourceLabel() + ". Matrícula: " + (state.matricula || "Todos") + ". División: " + (state.division || "Todas") + ". Resultados: " + state.rows.length + ".", "ok");}catch(e){console.error("[Ficha]", e);status(e.message || String(e), "warn");}}
+
+  function refreshFromBDLocal(){
+    if(state.refreshTimer){clearTimeout(state.refreshTimer);}
+    state.refreshTimer = setTimeout(function(){
+      state.refreshTimer = null;
+      invalidateDivisionOptions();
+      if(window.FichaCore && typeof window.FichaCore.invalidate === "function"){window.FichaCore.invalidate();}
+      render("bdlocal-refresh");
+    }, 220);
+  }
 
   function saveModalidad(){
     var row = selectedFromRows();var select = el("ficha-modalidad-select");
     if(!row || !select || !window.FichaModalidad){return;}
     try{var saved = window.FichaModalidad.save(row, select.value);status("Modalidad guardada: " + saved.label + ".", "ok");invalidateDivisionOptions();render("modalidad");}
     catch(error){console.error("[Ficha modalidad]", error);status(error.message || String(error), "warn");}
+  }
+
+  function bindBDLocalEvents(){
+    if(state.bdlocalBound){return;}
+    window.addEventListener("bdlocal:legacy-ready", refreshFromBDLocal);
+    window.addEventListener("bdlocal:legacy-snapshot", refreshFromBDLocal);
+    window.addEventListener("requisitos:bl:snapshot-changed", refreshFromBDLocal);
+    window.addEventListener("storage", function(event){if(event && (event.key === "REQ_BDLOCAL_LEGACY_SNAPSHOT_V1" || event.key === "REQ_EXCEL_LOCAL_V1:snapshot" || event.key === "REQ_BL_SIGNAL_V1")){refreshFromBDLocal();}});
+    state.bdlocalBound = true;
   }
 
   function bind(){
@@ -110,9 +130,10 @@ Con qué se conecta:
     bindIf("ficha-telegram", "click", function(e){var row = selectedFromRows();if(!row){return;}var url = window.FichaCore.telegramUrl ? window.FichaCore.telegramUrl(row) : "";if(!url){e.preventDefault();status("Telegram no registrado.", "warn");return;}e.preventDefault();copyText(window.FichaCore.studentMessage(row), "Mensaje copiado para Telegram.").then(function(){window.open(url, "_blank", "noopener");});});
     bindIf("ficha-copy-cedula", "click", function(){var row = selectedFromRows();if(row){copyText(row._cedula, "Cédula copiada.");}});
     bindIf("ficha-copy-correo", "click", function(){var row = selectedFromRows();if(row){copyText(row._correo, "Correo copiado.");}});
+    bindBDLocalEvents();
   }
 
   function boot(){if(window.BL2 && typeof window.BL2.status === "function"){window.BL2.status({deep:false});}bind();render("boot");}
   if(document.readyState === "loading"){document.addEventListener("DOMContentLoaded", boot);}else{boot();}
-  window.FichaApp = {render:render, scheduleRender:scheduleRender, getState:function(){return Object.assign({}, state);}};
+  window.FichaApp = {render:render, scheduleRender:scheduleRender, refreshFromBDLocal:refreshFromBDLocal, getState:function(){return Object.assign({}, state);}};
 })(window, document);
