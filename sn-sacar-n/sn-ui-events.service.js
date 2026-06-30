@@ -5,11 +5,13 @@ Modulo: Sacar N
 Funcion o funciones:
 - Conectar eventos de botones, filtros y paneles de la pantalla Sacar N.
 - Ejecutar la carga de estudiantes desde BDLocal.
-- Dejar respuestas temporales claras para SISACAD y Playwright, que vienen en bloques posteriores.
+- Abrir SISACAD visible desde Electron.
+- Dejar respuestas temporales claras para prueba visible, extraccion y exportacion.
 Con que se conecta:
 - sn-config.js
 - sn-state.service.js
 - sn-estudiantes.service.js
+- sn-sisacad-browser.service.js
 - sn-ui-render.service.js
 - sn-sacar-n.js
 ========================================================= */
@@ -63,18 +65,10 @@ Con que se conecta:
     var modalidad = $("snModalidad");
     var buscar = $("snBuscar");
 
-    if(periodo){
-      periodo.addEventListener("change", function(){ patchFiltro("periodoSeleccionado", periodo.value); });
-    }
-    if(carrera){
-      carrera.addEventListener("change", function(){ patchFiltro("carreraSeleccionada", carrera.value); });
-    }
-    if(modalidad){
-      modalidad.addEventListener("change", function(){ patchFiltro("modalidadSeleccionada", modalidad.value); });
-    }
-    if(buscar){
-      buscar.addEventListener("input", function(){ patchFiltro("busqueda", buscar.value); });
-    }
+    if(periodo){ periodo.addEventListener("change", function(){ patchFiltro("periodoSeleccionado", periodo.value); }); }
+    if(carrera){ carrera.addEventListener("change", function(){ patchFiltro("carreraSeleccionada", carrera.value); }); }
+    if(modalidad){ modalidad.addEventListener("change", function(){ patchFiltro("modalidadSeleccionada", modalidad.value); }); }
+    if(buscar){ buscar.addEventListener("input", function(){ patchFiltro("busqueda", buscar.value); }); }
   }
 
   function bindButtons(){
@@ -90,7 +84,14 @@ Con que se conecta:
     });
 
     bindClick("snBtnAbrirSisacad", function(){
-      setMensaje("Bloque 5 pendiente: aqui se abrira SISACAD visible con Electron + Playwright.");
+      var browser = window.SNSisacadBrowser;
+      if(browser && typeof browser.abrir === "function"){
+        browser.abrir().catch(function(error){
+          console.error("[SN_UI_EVENTS] Error al abrir SISACAD", error);
+        });
+      }else{
+        setMensaje("No se encontro el servicio para abrir SISACAD. Revise sn-sisacad-browser.service.js.");
+      }
     });
 
     bindClick("snBtnPruebaVisible", function(){
