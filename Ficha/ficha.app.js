@@ -12,6 +12,7 @@ Función o funciones:
 - Renderizar y guardar modalidadTitulacion para Infor.
 - Evitar construcción pesada duplicada al abrir la pantalla.
 - Refrescarse automáticamente cuando BDLocal actualiza el snapshot.
+- Pintar correo personal, correo institucional y celular.
 Con qué se conecta:
 - ficha.core.js
 - ficha.export.js
@@ -33,6 +34,7 @@ Con qué se conecta:
   function selectedFromRows(){var wanted = text(state.selectedId);return state.rows.find(function(row){return text(row._id) === wanted;}) || null;}
   function scheduleRender(reason){if(state.renderTimer){clearTimeout(state.renderTimer);}state.renderTimer = setTimeout(function(){state.renderTimer = null;render(reason || "programado");}, 260);}
   function sourceLabel(){return window.FichaCore && typeof window.FichaCore.source === "function" ? window.FichaCore.source() : "Base Local";}
+  function correoPrincipal(row){row = row || {};return text(row._correoPersonal || row._correoInstitucional || row._correo || row.correoPersonal || row.correoInstitucional || row.correo);}
 
   function periodDisplay(row){
     row = row || {};
@@ -42,12 +44,7 @@ Con qué se conecta:
     return raw;
   }
 
-  function fillPeriodAndMatricula(){
-    var sel = el("ficha-periodo"), mat = el("ficha-matricula");
-    if(sel){var list = window.FichaCore.periods();sel.innerHTML = option("", "Todos", !state.periodId) + list.map(function(p){return option(p.id, p.label || p.periodoLabel || p.id, state.periodId === p.id);}).join("");}
-    if(mat){mat.value = state.matricula;}
-  }
-
+  function fillPeriodAndMatricula(){var sel = el("ficha-periodo"), mat = el("ficha-matricula");if(sel){var list = window.FichaCore.periods();sel.innerHTML = option("", "Todos", !state.periodId) + list.map(function(p){return option(p.id, p.label || p.periodoLabel || p.id, state.periodId === p.id);}).join("");}if(mat){mat.value = state.matricula;}}
   function getDivisionOptions(){var key = [state.periodId, state.matricula, sourceLabel()].join("|");if(state.divisionKey === key && Array.isArray(state.divisionOptions)){return state.divisionOptions;}state.divisionOptions = window.FichaCore.divisions(null, {periodId:state.periodId, matricula:state.matricula});state.divisionKey = key;return state.divisionOptions;}
   function fillDivisionFilter(){var div = el("ficha-division");if(!div){return;}var divisions = getDivisionOptions();div.innerHTML = option("", "Todas", !state.division) + divisions.map(function(x){return option(x, x, state.division === x);}).join("");if(state.division && !divisions.some(function(x){return x === state.division;})){state.division = "";div.value = "";}else{div.value = state.division;}}
   function fillFilters(){fillPeriodAndMatricula();fillDivisionFilter();}
@@ -66,24 +63,14 @@ Con qué se conecta:
   function headerLine(label, value){return '<div class="ficha-identity-row"><span>' + esc(label) + '</span><strong>' + esc(value || '—') + '</strong></div>';}
   function renderHeaderIdentity(row){var box = el("ficha-identidad");if(!box){return;}box.innerHTML = [headerLine("Cédula", row._cedula || "—"),headerLine("Carrera", row._carrera || "Sin carrera"),headerLine("Período", periodDisplay(row))].join("");}
 
-  function renderModalidad(row){
-    var select = el("ficha-modalidad-select"), infoBox = el("ficha-modalidad-info"), btn = el("ficha-modalidad-save");
-    if(!select || !window.FichaModalidad){return;}
-    var info = window.FichaModalidad.current(row || {});
-    var opts = window.FichaModalidad.options(row || {});
-    select.innerHTML = opts.map(function(o){return option(o.value, o.label, o.value === info.value);}).join("");
-    select.value = info.value;
-    select.disabled = !!info.locked;
-    if(btn){btn.disabled = !!info.locked;btn.textContent = info.locked ? "Modalidad fija" : "Guardar modalidad";}
-    if(infoBox){infoBox.textContent = (info.periodType.label || "—") + " · " + info.label + " · " + (info.source === "guardado" ? "guardado" : "automático");infoBox.className = "ficha-modalidad-info " + (info.locked ? "locked" : "");}
-  }
+  function renderModalidad(row){var select = el("ficha-modalidad-select"), infoBox = el("ficha-modalidad-info"), btn = el("ficha-modalidad-save");if(!select || !window.FichaModalidad){return;}var info = window.FichaModalidad.current(row || {});var opts = window.FichaModalidad.options(row || {});select.innerHTML = opts.map(function(o){return option(o.value, o.label, o.value === info.value);}).join("");select.value = info.value;select.disabled = !!info.locked;if(btn){btn.disabled = !!info.locked;btn.textContent = info.locked ? "Modalidad fija" : "Guardar modalidad";}if(infoBox){infoBox.textContent = (info.periodType.label || "—") + " · " + info.label + " · " + (info.source === "guardado" ? "guardado" : "automático");infoBox.className = "ficha-modalidad-info " + (info.locked ? "locked" : "");}}
 
   function renderDetail(row){
     if(!row){if(el("ficha-empty")){el("ficha-empty").classList.remove("is-hidden");}if(el("ficha-detail")){el("ficha-detail").classList.add("is-hidden");}return;}
     if(el("ficha-empty")){el("ficha-empty").classList.add("is-hidden");}if(el("ficha-detail")){el("ficha-detail").classList.remove("is-hidden");}
     setText("ficha-nombre", row._nombres || "Sin nombre");renderHeaderIdentity(row);
     var estado = el("ficha-estado");if(estado){estado.textContent = row._estado && row._estado.label ? row._estado.label : "Pendiente";estado.className = "ficha-pill " + estadoClass(row._estado);}
-    setText("ficha-division-label", row._division || "Sin división");setText("ficha-matricula-label", row._estadoMatricula || "ACTIVO");setText("ficha-sede", row._sede || "—");setText("ficha-horario", row._horario || "—");setText("ficha-correo", row._correo || "—");setText("ficha-celular", row._celular || "—");
+    setText("ficha-division-label", row._division || "Sin división");setText("ficha-matricula-label", row._estadoMatricula || "ACTIVO");setText("ficha-sede", row._sede || "—");setText("ficha-horario", row._horario || "—");setText("ficha-correo", correoPrincipal(row) || "—");setText("ficha-correo-personal", row._correoPersonal || "—");setText("ficha-correo-institucional", row._correoInstitucional || "—");setText("ficha-celular", row._celular || "—");
     var w = window.FichaCore.whatsappUrl(row);var wa = el("ficha-whatsapp");if(wa){wa.href = w || "#";wa.classList.toggle("is-disabled", !w);wa.title = w ? "Enviar mensaje por WhatsApp" : "Celular no registrado";}
     var tg = el("ficha-telegram");var tgUrl = window.FichaCore.telegramUrl ? window.FichaCore.telegramUrl(row) : "";if(tg){tg.href = tgUrl || "#";tg.classList.toggle("is-disabled", !tgUrl);tg.title = tgUrl ? "Copiar mensaje y abrir Telegram" : "Telegram no registrado";}
     renderModalidad(row);renderSpecials(row);renderReqs(row);renderNotas(row);
@@ -92,31 +79,9 @@ Con qué se conecta:
   function select(id){state.selectedId = id || "";renderList();renderDetail(selectedFromRows());}
   function render(reason){try{fillFilters();state.rows = window.FichaCore.filter({periodId:state.periodId, division:state.division, matricula:state.matricula, search:state.search, limit:400, force:reason === "bdlocal-refresh"});if(!state.rows.some(function(x){return x._id === state.selectedId;})){state.selectedId = state.rows[0] ? state.rows[0]._id : "";}renderList();renderDetail(selectedFromRows());status("Ficha cargada por " + sourceLabel() + ". Matrícula: " + (state.matricula || "Todos") + ". División: " + (state.division || "Todas") + ". Resultados: " + state.rows.length + ".", "ok");}catch(e){console.error("[Ficha]", e);status(e.message || String(e), "warn");}}
 
-  function refreshFromBDLocal(){
-    if(state.refreshTimer){clearTimeout(state.refreshTimer);}
-    state.refreshTimer = setTimeout(function(){
-      state.refreshTimer = null;
-      invalidateDivisionOptions();
-      if(window.FichaCore && typeof window.FichaCore.invalidate === "function"){window.FichaCore.invalidate();}
-      render("bdlocal-refresh");
-    }, 220);
-  }
-
-  function saveModalidad(){
-    var row = selectedFromRows();var select = el("ficha-modalidad-select");
-    if(!row || !select || !window.FichaModalidad){return;}
-    try{var saved = window.FichaModalidad.save(row, select.value);status("Modalidad guardada: " + saved.label + ".", "ok");invalidateDivisionOptions();render("modalidad");}
-    catch(error){console.error("[Ficha modalidad]", error);status(error.message || String(error), "warn");}
-  }
-
-  function bindBDLocalEvents(){
-    if(state.bdlocalBound){return;}
-    window.addEventListener("bdlocal:legacy-ready", refreshFromBDLocal);
-    window.addEventListener("bdlocal:legacy-snapshot", refreshFromBDLocal);
-    window.addEventListener("requisitos:bl:snapshot-changed", refreshFromBDLocal);
-    window.addEventListener("storage", function(event){if(event && (event.key === "REQ_BDLOCAL_LEGACY_SNAPSHOT_V1" || event.key === "REQ_EXCEL_LOCAL_V1:snapshot" || event.key === "REQ_BL_SIGNAL_V1")){refreshFromBDLocal();}});
-    state.bdlocalBound = true;
-  }
+  function refreshFromBDLocal(){if(state.refreshTimer){clearTimeout(state.refreshTimer);}state.refreshTimer = setTimeout(function(){state.refreshTimer = null;invalidateDivisionOptions();if(window.FichaCore && typeof window.FichaCore.invalidate === "function"){window.FichaCore.invalidate();}render("bdlocal-refresh");}, 220);}
+  function saveModalidad(){var row = selectedFromRows();var select = el("ficha-modalidad-select");if(!row || !select || !window.FichaModalidad){return;}try{var saved = window.FichaModalidad.save(row, select.value);status("Modalidad guardada: " + saved.label + ".", "ok");invalidateDivisionOptions();render("modalidad");}catch(error){console.error("[Ficha modalidad]", error);status(error.message || String(error), "warn");}}
+  function bindBDLocalEvents(){if(state.bdlocalBound){return;}window.addEventListener("bdlocal:legacy-ready", refreshFromBDLocal);window.addEventListener("bdlocal:legacy-snapshot", refreshFromBDLocal);window.addEventListener("requisitos:bl:snapshot-changed", refreshFromBDLocal);window.addEventListener("storage", function(event){if(event && (event.key === "REQ_BDLOCAL_LEGACY_SNAPSHOT_V1" || event.key === "REQ_EXCEL_LOCAL_V1:snapshot" || event.key === "REQ_BL_SIGNAL_V1")){refreshFromBDLocal();}});state.bdlocalBound = true;}
 
   function bind(){
     bindIf("ficha-periodo", "change", function(e){state.periodId = e.target.value;state.division = "";state.selectedId = "";invalidateDivisionOptions();render("periodo");});
@@ -129,7 +94,7 @@ Con qué se conecta:
     bindIf("ficha-modalidad-save", "click", saveModalidad);
     bindIf("ficha-telegram", "click", function(e){var row = selectedFromRows();if(!row){return;}var url = window.FichaCore.telegramUrl ? window.FichaCore.telegramUrl(row) : "";if(!url){e.preventDefault();status("Telegram no registrado.", "warn");return;}e.preventDefault();copyText(window.FichaCore.studentMessage(row), "Mensaje copiado para Telegram.").then(function(){window.open(url, "_blank", "noopener");});});
     bindIf("ficha-copy-cedula", "click", function(){var row = selectedFromRows();if(row){copyText(row._cedula, "Cédula copiada.");}});
-    bindIf("ficha-copy-correo", "click", function(){var row = selectedFromRows();if(row){copyText(row._correo, "Correo copiado.");}});
+    bindIf("ficha-copy-correo", "click", function(){var row = selectedFromRows();if(row){copyText(correoPrincipal(row), "Correo copiado.");}});
     bindBDLocalEvents();
   }
 
