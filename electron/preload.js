@@ -5,7 +5,7 @@ Funcion o funciones:
 - Exponer una API minima de Electron al navegador.
 - Permitir que las pantallas detecten que corren en Electron sin activar nodeIntegration.
 - Abrir enlaces externos mediante el proceso principal.
-- Exponer funciones seguras para abrir, navegar y probar lectura en SISACAD desde Sacar N.
+- Exponer funciones seguras para abrir, navegar, probar lectura y ejecutar extraccion automatica en SISACAD desde Sacar N.
 Con que se conecta:
 - electron/main.js
 - Maqueta/maq-index.html
@@ -32,7 +32,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     closeSisacad: () => ipcRenderer.invoke('sn:sisacad-close'),
     checkRegistroNotasProyecto: () => ipcRenderer.invoke('sn:sisacad-check-registro'),
     navigateRegistroNotasProyecto: () => ipcRenderer.invoke('sn:sisacad-navigate-registro'),
-    runPruebaVisible: (estudiantes) => ipcRenderer.invoke('sn:sisacad-prueba-visible', Array.isArray(estudiantes) ? estudiantes : [])
+    runPruebaVisible: (estudiantes) => ipcRenderer.invoke('sn:sisacad-prueba-visible', Array.isArray(estudiantes) ? estudiantes : []),
+    runExtraccionAutomatica: (estudiantes) => ipcRenderer.invoke('sn:sisacad-extraccion-automatica', Array.isArray(estudiantes) ? estudiantes : [])
   }
 });
 
