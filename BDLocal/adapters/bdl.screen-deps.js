@@ -41,7 +41,8 @@
     "sync/bdl.sync.download.js",
     "sync/bdl.sync.engine.js",
     "sync/bdl.sync.index.js",
-    "adapters/bdl.screen-compat.js"
+    "adapters/bdl.screen-compat.js",
+    "adapters/bdl.screen-autorefresh.js"
   ];
 
   document.write(files.map(function(file){
