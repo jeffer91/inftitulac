@@ -5,122 +5,109 @@
   var T = window.BDLNormText;
   if(!B || !T){ throw new Error("BDLRepoDivisiones requiere BDLRepoBase y BDLNormText."); }
 
-  function guardarMuchos(rows){
-    return B.putAll(B.stores.estudianteDivisiones, rows);
-  }
-
-  function porEstudiante(idEstudiantePeriodo){
-    return B.byIndex(B.stores.estudianteDivisiones, "by_idEstudiantePeriodo", idEstudiantePeriodo, { limit: 0 });
-  }
-
-  function porPeriodo(periodoId){
-    return B.byIndex(B.stores.estudianteDivisiones, "by_periodoId", periodoId, { limit: 0 });
-  }
-
-  function porPeriodoDivision(periodoId, divisionKey){
-    return B.byIndex(B.stores.estudianteDivisiones, "by_periodo_division", [periodoId, divisionKey], { limit: 0 });
-  }
-
-  function normCedula(value){ return String(value == null ? "" : value).replace(/[^0-9]/g, ""); }
-  function label(num){ return String(num).padStart(2, "0"); }
+  function cfgKey(periodoId){ return "divisiones_periodo__" + String(periodoId || ""); }
   function carreraKey(row){ return T.key(row.nombreCarrera || row.NombreCarrera || row.carrera || row.Carrera || "SIN_CARRERA"); }
   function carreraLabel(row){ return T.cleanSpaces(row.nombreCarrera || row.NombreCarrera || row.carrera || row.Carrera || "Sin carrera"); }
 
-  function divisionRow(student, division){
-    var id = student.idEstudiantePeriodo || (student.periodoId + "__" + student.numeroIdentificacion);
-    return {
-      id: id + "__principal",
-      idEstudiantePeriodo: id,
-      periodoId: student.periodoId,
-      numeroIdentificacion: student.numeroIdentificacion || student.cedula || student.Cedula || "",
-      division: division,
-      divisionKey: T.key(division),
-      esPrincipal: true,
-      actualizadaEn: B.now()
-    };
+  function guardarMuchos(rows){ return B.putAll(B.stores.estudianteDivisiones, rows); }
+  function porEstudiante(idEstudiantePeriodo){ return B.byIndex(B.stores.estudianteDivisiones, "by_idEstudiantePeriodo", idEstudiantePeriodo, { limit: 0 }); }
+  function porPeriodo(periodoId){ return B.byIndex(B.stores.estudianteDivisiones, "by_periodoId", periodoId, { limit: 0 }); }
+  function porPeriodoDivision(periodoId, divisionKey){ return B.byIndex(B.stores.estudianteDivisiones, "by_periodo_division", [periodoId, divisionKey], { limit: 0 }); }
+
+  function getConfig(periodoId){
+    return B.get(B.stores.appConfig, cfgKey(periodoId)).then(function(row){
+      return row && row.valor ? row.valor : { periodoId: periodoId, divisiones: [] };
+    });
+  }
+
+  function saveConfig(periodoId, config){
+    config = config || { periodoId: periodoId, divisiones: [] };
+    config.periodoId = periodoId;
+    config.updatedAt = B.now();
+    return B.put(B.stores.appConfig, { clave: cfgKey(periodoId), valor: config, updatedAt: B.now() }).then(function(){ return config; });
+  }
+
+  function carrerasPorPeriodo(periodoId){
+    return B.byIndex(B.stores.estudiantesResumen, "by_periodoId", periodoId, { limit: 0 }).then(function(rows){
+      var map = {};
+      rows.forEach(function(row){
+        var key = carreraKey(row);
+        if(key && !map[key]){ map[key] = { key: key, nombre: carreraLabel(row), codigo: row.codigoCarrera || row.CodigoCarrera || "" }; }
+      });
+      return Object.keys(map).map(function(k){ return map[k]; }).sort(function(a,b){ return a.nombre.localeCompare(b.nombre, "es"); });
+    });
+  }
+
+  function rowDivision(student, division){
+    var id = student.idEstudiantePeriodo;
+    return { id:id + "__principal", idEstudiantePeriodo:id, periodoId:student.periodoId, numeroIdentificacion:student.numeroIdentificacion || "", division:division, divisionKey:T.key(division), esPrincipal:true, actualizadaEn:B.now() };
   }
 
   function updateStudent(student, division){
     var resumen = Object.assign({}, student || {});
     var id = resumen.idEstudiantePeriodo;
-    resumen.divisionPrincipal = division;
-    resumen.division = division;
-    resumen.Division = division;
-    resumen.divisiones = [division];
+    resumen.divisionPrincipal = division || "";
+    resumen.division = division || "";
+    resumen.Division = division || "";
+    resumen.divisiones = division ? [division] : [];
     resumen.actualizadoEn = B.now();
     return B.put(B.stores.estudiantesResumen, resumen).then(function(){
       return B.get(B.stores.estudiantesDetalle, id).then(function(detalle){
         if(!detalle){ return null; }
-        detalle = Object.assign({}, detalle, { divisionPrincipal: division, division: division, Division: division, divisiones: [division], actualizadoEn: B.now() });
+        detalle = Object.assign({}, detalle, { divisionPrincipal:resumen.divisionPrincipal, division:resumen.division, Division:resumen.Division, divisiones:resumen.divisiones, actualizadoEn:B.now() });
         return B.put(B.stores.estudiantesDetalle, detalle);
       });
     }).then(function(){
-      return B.put(B.stores.estudianteDivisiones, divisionRow(resumen, division));
+      if(division){ return B.put(B.stores.estudianteDivisiones, rowDivision(resumen, division)); }
+      return B.remove(B.stores.estudianteDivisiones, id + "__principal").catch(function(){ return null; });
     });
   }
 
-  function aplicarAsignaciones(periodoId, asignaciones){
-    asignaciones = asignaciones || [];
-    var byCedula = {};
-    var byId = {};
-    asignaciones.forEach(function(item){
-      var division = T.cleanSpaces(item.division || item.nombre || "");
-      if(!division){ return; }
-      if(item.idEstudiantePeriodo){ byId[String(item.idEstudiantePeriodo)] = division; }
-      var ced = normCedula(item.cedula || item.numeroIdentificacion || item.identificacion || "");
-      if(ced){ byCedula[ced] = division; }
+  function aplicarConfiguracion(periodoId, config){
+    config = config || { divisiones: [] };
+    var carreraToDivision = {};
+    (config.divisiones || []).forEach(function(div){
+      (div.carreras || []).forEach(function(key){ carreraToDivision[key] = div.nombre; });
     });
     return B.byIndex(B.stores.estudiantesResumen, "by_periodoId", periodoId, { limit: 0 }).then(function(students){
       var updated = 0;
       var chain = Promise.resolve();
       students.forEach(function(student){
-        var division = byId[student.idEstudiantePeriodo] || byCedula[normCedula(student.numeroIdentificacion || student.cedula || student.Cedula)];
-        if(!division){ return; }
-        chain = chain.then(function(){ return updateStudent(student, division).then(function(){ updated += 1; }); });
+        var div = carreraToDivision[carreraKey(student)] || "";
+        chain = chain.then(function(){ return updateStudent(student, div).then(function(){ updated += 1; }); });
       });
       return chain.then(function(){
         B.cacheClear();
         if(window.BDLRepoEstudiantes && window.BDLRepoEstudiantes.mirrorSnapshot){ window.BDLRepoEstudiantes.mirrorSnapshot(); }
-        return { ok:true, updated: updated, total: asignaciones.length };
+        return { ok:true, updated:updated };
       });
     });
   }
 
-  function generarAutomaticas(periodoId, options){
-    options = options || {};
-    var tamano = Math.max(1, Number(options.tamano || 30));
-    var prefijo = T.cleanSpaces(options.prefijo || "DIV");
-    var porCarrera = options.porCarrera !== false;
-    return B.byIndex(B.stores.estudiantesResumen, "by_periodoId", periodoId, { limit: 0 }).then(function(students){
-      var groups = {};
-      students.forEach(function(student){
-        var key = porCarrera ? carreraKey(student) : "GENERAL";
-        if(!groups[key]){ groups[key] = { label: porCarrera ? carreraLabel(student) : "General", rows: [] }; }
-        groups[key].rows.push(student);
-      });
-      var asignaciones = [];
-      Object.keys(groups).sort().forEach(function(key){
-        var group = groups[key];
-        group.rows.sort(function(a,b){ return String(a.nombres || "").localeCompare(String(b.nombres || ""), "es"); });
-        group.rows.forEach(function(student, index){
-          var n = Math.floor(index / tamano) + 1;
-          var division = prefijo + "-" + label(n) + (porCarrera ? " · " + group.label : "");
-          asignaciones.push({ idEstudiantePeriodo: student.idEstudiantePeriodo, division: division });
-        });
-      });
-      return aplicarAsignaciones(periodoId, asignaciones).then(function(result){
-        result.generated = asignaciones.length;
-        return result;
-      });
+  function guardarDivision(periodoId, nombre, oldNombre, carreras){
+    nombre = T.cleanSpaces(nombre || "");
+    oldNombre = T.cleanSpaces(oldNombre || nombre);
+    carreras = Array.isArray(carreras) ? carreras : [];
+    if(!nombre){ return Promise.reject(new Error("Ingrese el nombre de la división.")); }
+    return getConfig(periodoId).then(function(config){
+      var divisiones = config.divisiones || [];
+      divisiones.forEach(function(div){ div.carreras = (div.carreras || []).filter(function(key){ return carreras.indexOf(key) < 0; }); });
+      var current = divisiones.filter(function(div){ return div.nombre === oldNombre; })[0];
+      if(!current){ current = { nombre:nombre, carreras:[] }; divisiones.push(current); }
+      current.nombre = nombre;
+      current.carreras = carreras;
+      config.divisiones = divisiones.filter(function(div){ return div.nombre && ((div.carreras || []).length || div.nombre === nombre); });
+      return saveConfig(periodoId, config).then(function(saved){ return aplicarConfiguracion(periodoId, saved).then(function(){ return saved; }); });
     });
   }
 
-  window.BDLRepoDivisiones = {
-    guardarMuchos: guardarMuchos,
-    porEstudiante: porEstudiante,
-    porPeriodo: porPeriodo,
-    porPeriodoDivision: porPeriodoDivision,
-    aplicarAsignaciones: aplicarAsignaciones,
-    generarAutomaticas: generarAutomaticas
-  };
+  function borrarDivision(periodoId, nombre){
+    nombre = T.cleanSpaces(nombre || "");
+    return getConfig(periodoId).then(function(config){
+      config.divisiones = (config.divisiones || []).filter(function(div){ return div.nombre !== nombre; });
+      return saveConfig(periodoId, config).then(function(saved){ return aplicarConfiguracion(periodoId, saved).then(function(){ return saved; }); });
+    });
+  }
+
+  window.BDLRepoDivisiones = { guardarMuchos:guardarMuchos, porEstudiante:porEstudiante, porPeriodo:porPeriodo, porPeriodoDivision:porPeriodoDivision, getConfig:getConfig, saveConfig:saveConfig, carrerasPorPeriodo:carrerasPorPeriodo, guardarDivision:guardarDivision, borrarDivision:borrarDivision, aplicarConfiguracion:aplicarConfiguracion };
 })(window);
