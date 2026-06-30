@@ -17,6 +17,10 @@
     H.on('#bdlSearch', 'input', function(){ if(window.BDLUIEstudiantes){ window.BDLUIEstudiantes.search(); } });
     H.on('#bdlClosePanel', 'click', function(){ if(window.BDLUIDetalle){ window.BDLUIDetalle.close(); } });
     H.on('#bdlBtnSync', 'click', function(){ if(window.BDLUIFirebase){ window.BDLUIFirebase.run(); } });
+    H.on('#bdlBtnDivisiones', 'click', function(){ if(window.BDLUIDivisiones){ window.BDLUIDivisiones.open(); } });
+    H.on('#bdlDivClose', 'click', function(){ if(window.BDLUIDivisiones){ window.BDLUIDivisiones.close(); } });
+    H.on('#bdlDivCancel', 'click', function(){ if(window.BDLUIDivisiones){ window.BDLUIDivisiones.close(); } });
+    H.on('#bdlDivGenerate', 'click', function(){ if(window.BDLUIDivisiones){ window.BDLUIDivisiones.generate(); } });
     H.on('#bdlBtnCargaFile', 'click', function(){ if(window.BDLUICarga){ window.BDLUICarga.loadFile(); } });
     H.on('#bdlBtnCargaTexto', 'click', function(){ if(window.BDLUICarga){ window.BDLUICarga.loadText(); } });
     H.on('#bdlBtnGuardarCarga', 'click', function(){ if(window.BDLUICarga){ window.BDLUICarga.save(); } });
