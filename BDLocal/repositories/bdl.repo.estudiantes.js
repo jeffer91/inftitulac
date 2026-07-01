@@ -77,6 +77,23 @@
     return row;
   }
 
+  function progress(options, current, total, message, phase){
+    options = options || {};
+    var detail = {
+      current: Number(current || 0),
+      total: Number(total || 0),
+      message: message || "",
+      phase: phase || ""
+    };
+
+    if(typeof options.onProgress === "function"){
+      try{ options.onProgress(detail); }catch(error){ console.warn("[BDLRepoEstudiantes] Error en onProgress", error); }
+    }
+
+    try{ window.dispatchEvent(new CustomEvent("bdlocal:estudiantes-progress", { detail: detail })); }catch(error){}
+    return detail;
+  }
+
   function mergeStudents(resumenRows, personaRows, detalleRows){
     var personas = byKey(personaRows, "numeroIdentificacion");
     var detalles = byKey(detalleRows, "idEstudiantePeriodo");
@@ -147,28 +164,134 @@
       B.putAll(B.stores.erroresDatos, errores)
     ]).then(function(){
       B.cacheClear();
-      return { idEstudiantePeriodo: id, errores: errores.length };
+      return { idEstudiantePeriodo: id, periodoId: periodoId, errores: errores.length };
     });
   }
 
-  function guardarMuchos(rows, periodoInfo){
+  function guardarMuchos(rows, periodoInfo, options){
+    options = options || {};
     rows = B.asArray(rows);
-    var result = { saved: 0, errors: 0, total: rows.length };
+
+    var result = {
+      ok: true,
+      saved: 0,
+      errors: 0,
+      total: rows.length,
+      periodoId: txt(periodoInfo && periodoInfo.periodoId),
+      startedAt: B.now()
+    };
+
+    progress(options, 0, rows.length, "Guardando estudiantes", "save");
+
     var chain = Promise.resolve(result);
-    rows.forEach(function(row){
+
+    rows.forEach(function(row, index){
       chain = chain.then(function(){
+        progress(options, index, rows.length, "Guardando estudiante " + (index + 1) + " de " + rows.length, "save");
         return guardarRegistro(row, periodoInfo).then(function(saved){
           result.saved += 1;
           result.errors += saved.errores || 0;
+          result.periodoId = result.periodoId || saved.periodoId || "";
+          progress(options, result.saved, rows.length, "Estudiantes guardados: " + result.saved + " de " + rows.length, "save");
           return result;
         });
       });
     });
+
     return chain.then(function(finalResult){
+      finalResult.finishedAt = B.now();
       return mirrorSnapshot().catch(function(error){
         console.warn("[BDLRepoEstudiantes] No se pudo crear snapshot legacy", error);
         return null;
-      }).then(function(){ return finalResult; });
+      }).then(function(){
+        progress(options, finalResult.saved, rows.length, "Snapshot local actualizado", "snapshot");
+        return finalResult;
+      });
+    });
+  }
+
+  function borrarStorePorPeriodo(storeName, indexName, keyField, periodoId, options, label){
+    return B.byIndex(storeName, indexName || "by_periodoId", periodoId, { limit: 0 }).then(function(rows){
+      rows = B.asArray(rows);
+      var result = { store: storeName, label: label || storeName, deleted: 0, total: rows.length };
+      var chain = Promise.resolve(result);
+
+      rows.forEach(function(row){
+        chain = chain.then(function(){
+          var key = row && row[keyField];
+          if(!key){ return result; }
+          return B.remove(storeName, key).then(function(){
+            result.deleted += 1;
+            return result;
+          }).catch(function(error){
+            console.warn("[BDLRepoEstudiantes] No se pudo borrar en " + storeName, error);
+            return result;
+          });
+        });
+      });
+
+      return chain;
+    });
+  }
+
+  function borrarPorPeriodo(periodoId, options){
+    options = options || {};
+    periodoId = txt(periodoId);
+
+    if(!periodoId){
+      return Promise.resolve({ ok:false, periodoId:"", deleted:0, message:"periodoId vacío" });
+    }
+
+    var totals = [];
+    var order = [
+      { store:B.stores.estudianteRequisitos, key:"id", label:"requisitos" },
+      { store:B.stores.estudianteNotas, key:"idNota", label:"notas" },
+      { store:B.stores.estudianteDivisiones, key:"id", label:"divisiones" },
+      { store:B.stores.estudiantesDetalle, key:"idEstudiantePeriodo", label:"detalles" },
+      { store:B.stores.estudiantesResumen, key:"idEstudiantePeriodo", label:"resúmenes" },
+      { store:B.stores.dashboardCache, key:"id", label:"dashboard" }
+    ];
+
+    progress(options, 0, order.length, "Limpiando datos anteriores del período", "cleanup");
+
+    var chain = Promise.resolve();
+
+    order.forEach(function(item, index){
+      chain = chain.then(function(){
+        progress(options, index, order.length, "Limpiando " + item.label, "cleanup");
+        return borrarStorePorPeriodo(item.store, "by_periodoId", item.key, periodoId, options, item.label).then(function(result){
+          totals.push(result);
+          progress(options, index + 1, order.length, "Limpieza de " + item.label + " finalizada", "cleanup");
+          return result;
+        });
+      });
+    });
+
+    return chain.then(function(){
+      B.cacheClear();
+      return mirrorSnapshot().catch(function(error){
+        console.warn("[BDLRepoEstudiantes] No se pudo actualizar snapshot después de limpiar período", error);
+        return null;
+      });
+    }).then(function(){
+      var deleted = totals.reduce(function(sum, item){ return sum + Number(item.deleted || 0); }, 0);
+      return { ok:true, periodoId:periodoId, deleted:deleted, stores:totals, message:"Datos del período limpiados." };
+    });
+  }
+
+  function reemplazarPorPeriodo(rows, periodoInfo, options){
+    options = options || {};
+    periodoInfo = periodoInfo || {};
+    var periodoId = txt(periodoInfo.periodoId);
+
+    if(!periodoId){
+      return Promise.reject(new Error("No se puede reemplazar la carga porque periodoId está vacío."));
+    }
+
+    return borrarPorPeriodo(periodoId, options).then(function(cleanup){
+      return guardarMuchos(rows, periodoInfo, options).then(function(result){
+        return Object.assign({}, result, { cleanup: cleanup, replaced: true, mode: "replacePeriod" });
+      });
     });
   }
 
@@ -184,6 +307,20 @@
     if(!periodoId){ return Promise.resolve(0); }
     return B.byIndex(B.stores.estudiantesResumen, "by_periodoId", periodoId, { limit: 0 }).then(function(rows){
       return rows.length;
+    });
+  }
+
+  function verificarPeriodo(periodoId, expected){
+    expected = Number(expected || 0);
+    return contarPorPeriodo(periodoId).then(function(count){
+      return {
+        ok: count === expected,
+        periodoId: periodoId,
+        esperados: expected,
+        guardados: count,
+        diferencia: count - expected,
+        message: count === expected ? "Verificación correcta." : "La cantidad guardada no coincide con la cantidad detectada."
+      };
     });
   }
 
@@ -220,8 +357,11 @@
   window.BDLRepoEstudiantes = {
     guardarRegistro: guardarRegistro,
     guardarMuchos: guardarMuchos,
+    reemplazarPorPeriodo: reemplazarPorPeriodo,
+    borrarPorPeriodo: borrarPorPeriodo,
     listarResumen: listarResumen,
     contarPorPeriodo: contarPorPeriodo,
+    verificarPeriodo: verificarPeriodo,
     obtenerResumen: obtenerResumen,
     obtenerDetalle: obtenerDetalle,
     mirrorSnapshot: mirrorSnapshot

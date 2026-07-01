@@ -11,6 +11,7 @@ Función o funciones:
 - Mostrar acciones rápidas visuales: aprobaciones, copiar ficha y Telegram.
 - Mostrar encabezado por filas sin repetir cédula, carrera ni período en tarjetas.
 - Mostrar notas finales en tarjetas visuales.
+- Permitir seleccionar y copiar manualmente los textos visibles de la pantalla Ficha.
 Con qué se conecta:
 - ficha.html
 - ficha.css
@@ -333,6 +334,71 @@ h2#ficha-nombre{
 
 .ficha-empty{
   min-height:360px;
+}
+
+/* =========================================================
+Permitir selección manual de texto visible
+========================================================= */
+
+.ficha-list,
+.ficha-list *,
+.ficha-detail-card,
+.ficha-detail-card *,
+.ficha-main-head,
+.ficha-main-head *,
+.ficha-identity-lines,
+.ficha-identity-lines *,
+.ficha-grid-info,
+.ficha-grid-info *,
+.ficha-requisitos,
+.ficha-requisitos *,
+.ficha-notas,
+.ficha-notas *,
+.ficha-modalidad-card,
+.ficha-modalidad-card *{
+  -webkit-user-select:text;
+  user-select:text;
+}
+
+.ficha-detail-card h2,
+.ficha-detail-card strong,
+.ficha-detail-card span,
+.ficha-detail-card p,
+.ficha-detail-card div,
+.ficha-detail-card article,
+.ficha-item,
+.ficha-item *{
+  cursor:text;
+}
+
+/* Mantener controles funcionando como controles */
+.ficha-toolbar,
+.ficha-toolbar *,
+.ficha-top-actions,
+.ficha-top-actions *,
+.ficha-actions,
+.ficha-actions *,
+.ficha-modalidad-row button,
+.ficha-modalidad-row select,
+.ficha-modalidad-row label{
+  -webkit-user-select:auto;
+  user-select:auto;
+}
+
+.ficha-toolbar button,
+.ficha-toolbar select,
+.ficha-toolbar input,
+.ficha-top-actions button,
+.ficha-top-actions a,
+.ficha-actions button,
+.ficha-actions a,
+.ficha-modalidad-row button,
+.ficha-modalidad-row select{
+  cursor:pointer;
+}
+
+.ficha-filter-search input{
+  cursor:text;
 }
 
 @media(max-width:1450px){

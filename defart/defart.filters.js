@@ -53,7 +53,9 @@ Con qué se conecta:
     var kpis = {
       total: rows.length,
       "Falta requisitos": 0,
+      "Pendiente N-ART": 0,
       "Supletorio Art": 0,
+      "Pendiente N-DEF": 0,
       "Supletorio Def": 0,
       "Aprobado": 0,
       "Sin nota Art": 0,

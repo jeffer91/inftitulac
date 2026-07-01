@@ -7,14 +7,18 @@ Función o funciones:
 - Calcular N-FIN con 70% artículo y 30% defensa.
 - Filtrar por período, división, carrera, estado, notas pendientes y búsqueda.
 - Guardar notas en BDLocal.
+- Usar defart.divisions.js para leer la configuración división -> carreras.
+- Usar defart.save.js para guardado seguro y autoguardado al salir del campo.
 - Descargar Excel visible de notas.
 Con qué se conecta:
 - ../BDLocal/adapters/bdl.screen-deps.js
 - defart.css
+- defart.divisions.js
 - defart.core.js
 - defart.filters.js
 - defart.continuity.js
 - defart.export.js
+- defart.save.js
 - defart.app.js
 ========================================================= -->
 <html lang="es">
@@ -31,7 +35,7 @@ Con qué se conecta:
       <div>
         <span class="def-eyebrow">Módulo de defensa</span>
         <h1>Control de notas</h1>
-        <p>N-ART se habilita solo con requisitos cumplidos. N-DEF se habilita solo con N-ART igual o mayor a 7.</p>
+        <p>N-ART se habilita solo con requisitos cumplidos. N-DEF se habilita solo con N-ART igual o mayor a 7. El guardado automático ocurre al salir del campo o presionar Enter.</p>
       </div>
       <div id="def-save-state" class="def-save-badge">Listo</div>
     </section>
@@ -39,35 +43,97 @@ Con qué se conecta:
     <section id="def-status" class="def-status">Cargando Defensas...</section>
 
     <section class="def-toolbar">
-      <label>Período<select id="def-filter-periodo"><option value="">Todos</option></select></label>
-      <label>División<select id="def-filter-division"><option value="">Todas</option></select></label>
-      <label>Carrera<select id="def-filter-carrera"><option value="">Todas</option></select></label>
-      <label>Estado<select id="def-filter-estado"><option value="">Todos</option><option value="Falta requisitos">Falta requisitos</option><option value="Supletorio Art">Supletorio Art</option><option value="Supletorio Def">Supletorio Def</option><option value="Aprobado">Aprobado</option><option value="Sin nota Art">Sin nota Art</option><option value="Sin nota Def">Sin nota Def</option></select></label>
-      <label class="def-search-label">Buscar<input id="def-filter-search" type="search" placeholder="Cédula, nombre, carrera o división..." /></label>
-      <div class="def-toolbar-actions"><button id="def-btn-clear" type="button">Limpiar filtros</button><button id="def-btn-refresh" type="button">Actualizar</button><button id="def-btn-export" type="button">Descargar Excel</button></div>
+      <label>
+        Período
+        <select id="def-filter-periodo">
+          <option value="">Todos</option>
+        </select>
+      </label>
+
+      <label>
+        División
+        <select id="def-filter-division">
+          <option value="">Todas</option>
+        </select>
+      </label>
+
+      <label>
+        Carrera
+        <select id="def-filter-carrera">
+          <option value="">Todas</option>
+        </select>
+      </label>
+
+      <label>
+        Estado
+        <select id="def-filter-estado">
+          <option value="">Todos</option>
+          <option value="Falta requisitos">Falta requisitos</option>
+          <option value="Pendiente N-ART">Pendiente N-ART</option>
+          <option value="Supletorio Art">Supletorio Art</option>
+          <option value="Pendiente N-DEF">Pendiente N-DEF</option>
+          <option value="Supletorio Def">Supletorio Def</option>
+          <option value="Aprobado">Aprobado</option>
+          <option value="Sin nota Art">Sin nota Art</option>
+          <option value="Sin nota Def">Sin nota Def</option>
+        </select>
+      </label>
+
+      <label class="def-search-label">
+        Buscar
+        <input id="def-filter-search" type="search" placeholder="Cédula, nombre, carrera o división..." />
+      </label>
+
+      <div class="def-toolbar-actions">
+        <button id="def-btn-clear" type="button">Limpiar filtros</button>
+        <button id="def-btn-refresh" type="button">Actualizar</button>
+        <button id="def-btn-export" type="button">Descargar Excel</button>
+      </div>
     </section>
 
     <section class="def-legend" aria-label="Estados de defensa">
       <span class="legend-item legend-falta">Falta requisitos</span>
+      <span class="legend-item legend-art">Pendiente N-ART</span>
       <span class="legend-item legend-art">Supletorio Art</span>
+      <span class="legend-item legend-def">Pendiente N-DEF</span>
       <span class="legend-item legend-def">Supletorio Def</span>
       <span class="legend-item legend-aprobado">Aprobado</span>
       <strong id="def-visible-count">0 visibles</strong>
     </section>
 
-    <section class="def-progress-wrap" aria-label="Progreso de guardado"><div class="def-progress-info"><span id="def-progress-text">Sin cambios pendientes.</span></div><div class="def-progress-track"><div id="def-progress-bar" class="def-progress-bar"></div></div></section>
+    <section class="def-progress-wrap" aria-label="Progreso de guardado">
+      <div class="def-progress-info">
+        <span id="def-progress-text">Sin cambios pendientes.</span>
+      </div>
+      <div class="def-progress-track">
+        <div id="def-progress-bar" class="def-progress-bar"></div>
+      </div>
+    </section>
 
-    <section class="def-table-card"><div id="def-table-wrap" class="def-table-wrap"><div class="def-empty">Cargando estudiantes...</div></div></section>
-    <section class="def-diagnostics-card"><details><summary>Diagnóstico</summary><pre id="def-diagnostics">{}</pre></details></section>
+    <section class="def-table-card">
+      <div id="def-table-wrap" class="def-table-wrap">
+        <div class="def-empty">Cargando estudiantes...</div>
+      </div>
+    </section>
+
+    <section class="def-diagnostics-card">
+      <details>
+        <summary>Diagnóstico</summary>
+        <pre id="def-diagnostics">{}</pre>
+      </details>
+    </section>
   </main>
 
-  <button id="def-btn-save" class="def-floating-save" type="button">Guardar todo</button>
+  <button id="def-btn-save" class="def-floating-save" type="button" disabled>Guardar todo</button>
+  <div id="def-save-toast" class="def-save-toast" hidden>Guardado</div>
 
   <script src="../BDLocal/adapters/bdl.screen-deps.js"></script>
+  <script src="defart.divisions.js"></script>
   <script src="defart.core.js"></script>
   <script src="defart.filters.js"></script>
   <script src="defart.continuity.js"></script>
   <script src="defart.export.js"></script>
+  <script src="defart.save.js"></script>
   <script src="defart.app.js"></script>
 </body>
 </html>

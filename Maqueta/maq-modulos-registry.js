@@ -3,7 +3,7 @@ Nombre completo: maq-modulos-registry.js
 Ruta o ubicación: /Requisitos/Maqueta/maq-modulos-registry.js
 Función o funciones:
 - Definir rutas internas reales del menú de Requisitos.
-- Enviar Carga a la pantalla funcional BDLocal/bdlocal.html.
+- Enviar Carga a la pantalla especializada Carga/carga.html.
 - Enviar BL a la pantalla de control BDLocal/bl.html.
 - Registrar Sacar N como módulo activo para extracción controlada de notas.
 - Marcar como pendientes las pantallas que aún no existen en este repositorio para evitar iframe roto.
@@ -13,23 +13,106 @@ Con qué se conecta:
 ========================================================= */
 (function(window){
   "use strict";
-  var base="..";
-  var modules={
-    carga_excel:{id:"carga_excel",nombre:"Carga",ruta:base+"/BDLocal/bdlocal.html",estado:"activo"},
-    baselocal:{id:"baselocal",nombre:"BL",ruta:base+"/BDLocal/bl.html",estado:"activo"},
-    tabla_principal:{id:"tabla_principal",nombre:"Tabla",ruta:base+"/Gestion/Tabla/tabla.html",estado:"activo"},
-    ficha_estudiante:{id:"ficha_estudiante",nombre:"Ficha",ruta:base+"/Ficha/ficha.html",estado:"activo"},
-    stat_main:{id:"stat_main",nombre:"Estadísticas",ruta:base+"/Stats/stats.html",estado:"activo"},
-    coordi:{id:"coordi",nombre:"Coordi",ruta:base+"/Coordi/coordi.html",estado:"activo"},
-    modulo_reporte:{id:"modulo_reporte",nombre:"Reportes",ruta:base+"/Reportes/repo.html",estado:"activo"},
-    defart:{id:"defart",nombre:"Defensas",ruta:base+"/defart/defart.html",estado:"activo"},
-    sacar_n:{id:"sacar_n",nombre:"Sacar N",ruta:base+"/sn-sacar-n/sn-sacar-n.html",estado:"activo"},
-    titulos_estudiante:{id:"titulos_estudiante",nombre:"Títulos - Estudiante",ruta:base+"/Titulos/public/ta-titulo-articulo-estudiante.html",estado:"pendiente"},
-    titulos_admin:{id:"titulos_admin",nombre:"Títulos - Administrador",ruta:base+"/Titulos/electron/admin/ta-titulo-articulo-administrador.html",estado:"pendiente"},
-    titulos_coordinador:{id:"titulos_coordinador",nombre:"Títulos - Coordinador",ruta:base+"/Titulos/public/ta-titulo-articulo-coordinador.html",estado:"pendiente"},
-    titulacion:{id:"titulacion",nombre:"Infor",ruta:base+"/Infor/frontend/titulacion.html",estado:"activo"}
+
+  var base = "..";
+
+  var modules = {
+    carga_excel: {
+      id: "carga_excel",
+      nombre: "Carga",
+      ruta: base + "/Carga/carga.html",
+      estado: "activo"
+    },
+    baselocal: {
+      id: "baselocal",
+      nombre: "BL",
+      ruta: base + "/BDLocal/bl.html",
+      estado: "activo"
+    },
+    tabla_principal: {
+      id: "tabla_principal",
+      nombre: "Tabla",
+      ruta: base + "/Gestion/Tabla/tabla.html",
+      estado: "activo"
+    },
+    ficha_estudiante: {
+      id: "ficha_estudiante",
+      nombre: "Ficha",
+      ruta: base + "/Ficha/ficha.html",
+      estado: "activo"
+    },
+    stat_main: {
+      id: "stat_main",
+      nombre: "Estadísticas",
+      ruta: base + "/Stats/stats.html",
+      estado: "activo"
+    },
+    coordi: {
+      id: "coordi",
+      nombre: "Coordi",
+      ruta: base + "/Coordi/coordi.html",
+      estado: "activo"
+    },
+    modulo_reporte: {
+      id: "modulo_reporte",
+      nombre: "Reportes",
+      ruta: base + "/Reportes/repo.html",
+      estado: "activo"
+    },
+    defart: {
+      id: "defart",
+      nombre: "Defensas",
+      ruta: base + "/defart/defart.html",
+      estado: "activo"
+    },
+    sacar_n: {
+      id: "sacar_n",
+      nombre: "Sacar N",
+      ruta: base + "/sn-sacar-n/sn-sacar-n.html",
+      estado: "activo"
+    },
+    titulos_estudiante: {
+      id: "titulos_estudiante",
+      nombre: "Títulos - Estudiante",
+      ruta: base + "/Titulos/public/ta-titulo-articulo-estudiante.html",
+      estado: "pendiente"
+    },
+    titulos_admin: {
+      id: "titulos_admin",
+      nombre: "Títulos - Administrador",
+      ruta: base + "/Titulos/electron/admin/ta-titulo-articulo-administrador.html",
+      estado: "pendiente"
+    },
+    titulos_coordinador: {
+      id: "titulos_coordinador",
+      nombre: "Títulos - Coordinador",
+      ruta: base + "/Titulos/public/ta-titulo-articulo-coordinador.html",
+      estado: "pendiente"
+    },
+    titulacion: {
+      id: "titulacion",
+      nombre: "Infor",
+      ruta: base + "/Infor/frontend/titulacion.html",
+      estado: "activo"
+    }
   };
-  function buscarPorId(id){return modules[String(id||"").trim()]||null;}
-  function listar(){return Object.keys(modules).map(function(k){return modules[k];});}
-  window.MAQ_MODULOS_REGISTRY={buscarPorId:buscarPorId,listar:listar};
+
+  function clean(value){
+    return String(value == null ? "" : value).trim();
+  }
+
+  function buscarPorId(id){
+    return modules[clean(id)] || null;
+  }
+
+  function listar(){
+    return Object.keys(modules).map(function(key){
+      return modules[key];
+    });
+  }
+
+  window.MAQ_MODULOS_REGISTRY = {
+    buscarPorId: buscarPorId,
+    listar: listar
+  };
 })(window);

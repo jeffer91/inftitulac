@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<!-- =========================================================
+Nombre completo: carga.html
+Ruta: /Carga/carga.html
+Función:
+- Pantalla especializada para carga inteligente de archivos.
+- Diseño limpio sin tabla de estudiantes.
+- Mostrar resumen, carreras, requisitos, errores y log.
+- Incluir gestión de divisiones por período.
+- Cargar seguridad contra carreras dañadas o duplicadas.
+- Incluir barra de progreso real durante guardado.
+- Permitir borrar períodos desde Carga.
+- Permitir reemplazar carga completa del período.
+========================================================= -->
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carga | Requisitos</title>
+  <link rel="stylesheet" href="carga.css">
+
+  <style>
+    .carga-progress-card{
+      display:none;
+      margin:12px 0 0;
+      padding:14px 16px;
+      border:1px solid #dbe3ef;
+      border-radius:16px;
+      background:#ffffff;
+      box-shadow:0 8px 22px rgba(15,23,42,.06);
+    }
+
+    .carga-progress-card.is-visible{
+      display:block;
+    }
+
+    .carga-progress-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:10px;
+    }
+
+    .carga-progress-head strong{
+      color:#0f172a;
+    }
+
+    .carga-progress-head span{
+      color:#475569;
+      font-weight:700;
+    }
+
+    .carga-progress-track{
+      width:100%;
+      height:12px;
+      overflow:hidden;
+      border-radius:999px;
+      background:#e2e8f0;
+    }
+
+    .carga-progress-bar{
+      width:0%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#1d4ed8,#15803d);
+      transition:width .18s ease;
+    }
+
+    .carga-progress-message{
+      margin:8px 0 0;
+      color:#475569;
+      font-size:.92rem;
+    }
+
+    .carga-save-mode{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      padding:10px 12px;
+      border:1px solid #dbe3ef;
+      border-radius:14px;
+      background:#f8fafc;
+      color:#334155;
+      line-height:1.25;
+    }
+
+    .carga-save-mode input{
+      margin-top:2px;
+    }
+
+    .carga-save-mode strong{
+      display:block;
+      color:#0f172a;
+    }
+
+    .carga-save-mode small{
+      display:block;
+      color:#64748b;
+      margin-top:2px;
+    }
+
+    .carga-period-tools{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:8px;
+      margin-top:10px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="carga-shell">
+    <header class="carga-header">
+      <div>
+        <p class="carga-eyebrow">Requisitos · BDLocal</p>
+        <h1>Carga inteligente</h1>
+        <p class="carga-subtitle">
+          Importa archivos originales sin convertirlos manualmente. Soporta Excel moderno, Excel viejo tipo HTML, CSV, TXT, JSON y datos pegados.
+        </p>
+      </div>
+
+      <div class="carga-header-actions">
+        <button id="cargaBtnRecargarPeriodos" class="carga-btn secondary" type="button">
+          Recargar períodos
+        </button>
+
+        <button id="cargaBtnBorrarPeriodo" class="carga-btn ghost danger" type="button" disabled>
+          Borrar período
+        </button>
+
+        <button id="cargaBtnLimpiar" class="carga-btn ghost" type="button">
+          Limpiar
+        </button>
+      </div>
+    </header>
+
+    <section id="cargaStatus" class="carga-status">
+      Preparando pantalla de carga...
+    </section>
+
+    <section id="cargaProgressCard" class="carga-progress-card" aria-live="polite">
+      <div class="carga-progress-head">
+        <strong id="cargaProgressTitle">Progreso de carga</strong>
+        <span id="cargaProgressPercent">0%</span>
+      </div>
+
+      <div class="carga-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div id="cargaProgressBar" class="carga-progress-bar"></div>
+      </div>
+
+      <p id="cargaProgressMessage" class="carga-progress-message">
+        Esperando operación...
+      </p>
+    </section>
+
+    <section class="carga-main-grid">
+      <section class="carga-card carga-controls-card">
+        <div class="carga-section-title">
+          <span>1</span>
+          <div>
+            <h2>Configurar carga</h2>
+            <p>Selecciona período, archivo y ejecuta el análisis antes de guardar.</p>
+          </div>
+        </div>
+
+        <div class="carga-controls-grid">
+          <div class="carga-control-block">
+            <label class="carga-field">
+              <span>Período de destino</span>
+              <select id="cargaPeriodoSelect">
+                <option value="">Cargando períodos...</option>
+              </select>
+            </label>
+
+            <div class="carga-period-tools">
+              <button id="cargaBtnBorrarPeriodoInline" class="carga-btn ghost danger full" type="button" disabled>
+                Borrar período seleccionado
+              </button>
+            </div>
+
+            <details class="carga-details">
+              <summary>Crear período rápido</summary>
+
+              <div class="carga-period-grid">
+                <label class="carga-field">
+                  <span>Mes inicio</span>
+                  <select id="cargaMesInicio">
+                    <option value="1">Enero</option>
+                    <option value="2">Febrero</option>
+                    <option value="3">Marzo</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Mayo</option>
+                    <option value="6">Junio</option>
+                    <option value="7">Julio</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Septiembre</option>
+                    <option value="10">Octubre</option>
+                    <option value="11">Noviembre</option>
+                    <option value="12">Diciembre</option>
+                  </select>
+                </label>
+
+                <label class="carga-field">
+                  <span>Año inicio</span>
+                  <input id="cargaAnioInicio" type="number" min="2020" max="2035" placeholder="2025">
+                </label>
+
+                <label class="carga-field">
+                  <span>Mes fin</span>
+                  <select id="cargaMesFin">
+                    <option value="1">Enero</option>
+                    <option value="2">Febrero</option>
+                    <option value="3">Marzo</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Mayo</option>
+                    <option value="6">Junio</option>
+                    <option value="7">Julio</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Septiembre</option>
+                    <option value="10">Octubre</option>
+                    <option value="11">Noviembre</option>
+                    <option value="12">Diciembre</option>
+                  </select>
+                </label>
+
+                <label class="carga-field">
+                  <span>Año fin</span>
+                  <input id="cargaAnioFin" type="number" min="2020" max="2035" placeholder="2026">
+                </label>
+              </div>
+
+              <button id="cargaBtnCrearPeriodo" class="carga-btn secondary full" type="button">
+                Crear período
+              </button>
+            </details>
+          </div>
+
+          <div class="carga-control-block">
+            <label class="carga-file-box" for="cargaFile">
+              <strong>Seleccionar archivo</strong>
+              <small>.xls, .xlsx, .csv, .txt, .json, .html</small>
+              <input id="cargaFile" type="file" accept=".xls,.xlsx,.csv,.txt,.json,.html,.htm">
+            </label>
+
+            <p id="cargaFileName" class="carga-file-name">
+              Ningún archivo seleccionado.
+            </p>
+          </div>
+
+          <div class="carga-control-block carga-action-block">
+            <button id="cargaBtnAnalizar" class="carga-btn primary full" type="button">
+              Analizar archivo
+            </button>
+
+            <button id="cargaBtnGuardar" class="carga-btn success full" type="button" disabled>
+              Guardar carga completa
+            </button>
+
+            <label class="carga-save-mode" title="Recomendado cuando subes un archivo completo del período">
+              <input id="cargaModoReemplazo" type="checkbox" checked>
+              <span>
+                <strong>Reemplazar estudiantes del período</strong>
+                <small>Borra la carga anterior del período y guarda la nueva para evitar estudiantes viejos mezclados.</small>
+              </span>
+            </label>
+
+            <button id="cargaBtnDivisiones" class="carga-btn secondary full" type="button">
+              Gestionar divisiones
+            </button>
+
+            <details class="carga-details carga-paste-details">
+              <summary>Pegar datos manualmente</summary>
+
+              <label class="carga-field">
+                <span>Contenido pegado</span>
+                <textarea id="cargaTextoPegado" placeholder="Pega aquí CSV, TXT o JSON..."></textarea>
+              </label>
+
+              <button id="cargaBtnAnalizarTexto" class="carga-btn secondary full" type="button">
+                Analizar texto pegado
+              </button>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="carga-card">
+        <div class="carga-content-head">
+          <div>
+            <h2>Resumen de lectura</h2>
+            <p>Verifica que la lectura esté limpia antes de guardar. No se muestra lista de estudiantes para mantener la pantalla rápida.</p>
+          </div>
+          <span id="cargaBadgeEstado" class="carga-badge">Sin carga</span>
+        </div>
+
+        <div class="carga-kpis">
+          <article>
+            <span>Estudiantes</span>
+            <strong id="cargaKpiEstudiantes">0</strong>
+          </article>
+          <article>
+            <span>Guardados</span>
+            <strong id="cargaKpiGuardados">0</strong>
+          </article>
+          <article>
+            <span>Campos</span>
+            <strong id="cargaKpiCampos">0</strong>
+          </article>
+          <article>
+            <span>Carreras</span>
+            <strong id="cargaKpiCarreras">0</strong>
+          </article>
+          <article>
+            <span>Requisitos</span>
+            <strong id="cargaKpiRequisitos">0</strong>
+          </article>
+          <article>
+            <span>Advertencias</span>
+            <strong id="cargaKpiAdvertencias">0</strong>
+          </article>
+          <article>
+            <span>Errores</span>
+            <strong id="cargaKpiErrores">0</strong>
+          </article>
+          <article>
+            <span>Caracteres dañados</span>
+            <strong id="cargaKpiDanados">0</strong>
+          </article>
+        </div>
+
+        <div id="cargaLecturaInfo" class="carga-info-grid">
+          <div class="carga-empty compact">Todavía no hay archivo leído.</div>
+        </div>
+      </section>
+
+      <section class="carga-dual-grid">
+        <article class="carga-card">
+          <div class="carga-mini-head">
+            <h2>Carreras detectadas</h2>
+            <span id="cargaCarrerasMeta">0</span>
+          </div>
+          <div id="cargaCarreras" class="carga-pills">
+            <span>Sin carreras detectadas.</span>
+          </div>
+        </article>
+
+        <article class="carga-card">
+          <div class="carga-mini-head">
+            <h2>Requisitos detectados</h2>
+            <span id="cargaRequisitosMeta">0</span>
+          </div>
+          <div id="cargaRequisitos" class="carga-pills">
+            <span>Sin requisitos detectados.</span>
+          </div>
+        </article>
+      </section>
+
+      <section class="carga-card">
+        <div class="carga-mini-head">
+          <h2>Errores y advertencias</h2>
+          <span id="cargaIssuesMeta">0</span>
+        </div>
+        <div id="cargaIssues" class="carga-issues">
+          <div class="carga-empty">Sin errores ni advertencias.</div>
+        </div>
+      </section>
+
+      <section class="carga-card">
+        <details class="carga-log-details">
+          <summary>Log técnico</summary>
+          <pre id="cargaLog" class="carga-log">Listo.</pre>
+        </details>
+      </section>
+    </section>
+
+    <!-- =====================================================
+      MODAL GESTIÓN DE DIVISIONES
+    ====================================================== -->
+    <section id="cargaDivisionesModal" class="carga-modal carga-div-modal" hidden>
+      <div class="carga-modal-backdrop" data-carga-div-close="1"></div>
+
+      <article class="carga-modal-card carga-div-card-modal">
+        <header>
+          <div>
+            <h2>Gestión de divisiones</h2>
+            <p>Período: <strong id="cargaDivPeriodo">—</strong></p>
+          </div>
+
+          <button id="cargaDivBtnCerrar" class="carga-icon-btn" type="button" aria-label="Cerrar">
+            ×
+          </button>
+        </header>
+
+        <div class="carga-modal-body carga-div-body">
+          <section id="cargaDivStatus" class="carga-div-status">
+            Selecciona un período para gestionar divisiones.
+          </section>
+
+          <section class="carga-div-kpis">
+            <article>
+              <span>Divisiones</span>
+              <strong id="cargaDivCountDivisiones">0</strong>
+            </article>
+            <article>
+              <span>Carreras</span>
+              <strong id="cargaDivCountCarreras">0</strong>
+            </article>
+            <article>
+              <span>Asignadas</span>
+              <strong id="cargaDivCountAsignadas">0</strong>
+            </article>
+            <article>
+              <span>Sin división</span>
+              <strong id="cargaDivCountSinAsignar">0</strong>
+            </article>
+          </section>
+
+          <section class="carga-div-create">
+            <label class="carga-field">
+              <span>Nombre de la división</span>
+              <input id="cargaDivNombre" type="text" placeholder="Ejemplo: División 1, Norte, Online, Presencial">
+            </label>
+
+            <button id="cargaDivBtnCrear" class="carga-btn primary" type="button">
+              Crear división
+            </button>
+          </section>
+
+          <section class="carga-div-layout">
+            <aside class="carga-div-side">
+              <div class="carga-mini-head">
+                <h2>Divisiones creadas</h2>
+              </div>
+
+              <div id="cargaDivLista" class="carga-div-list">
+                <div class="carga-div-empty">Sin divisiones.</div>
+              </div>
+            </aside>
+
+            <section class="carga-div-main">
+              <div class="carga-div-main-head">
+                <div>
+                  <span>División activa</span>
+                  <h3 id="cargaDivActivaNombre">Sin división seleccionada</h3>
+                </div>
+
+                <div class="carga-div-actions">
+                  <button id="cargaDivBtnRenombrar" class="carga-btn secondary" type="button">
+                    Editar nombre
+                  </button>
+                  <button id="cargaDivBtnBorrar" class="carga-btn ghost danger" type="button">
+                    Borrar
+                  </button>
+                </div>
+              </div>
+
+              <div id="cargaDivDrop" class="carga-div-drop">
+                <div class="carga-div-empty">
+                  Selecciona o crea una división para asignar carreras.
+                </div>
+              </div>
+
+              <div class="carga-mini-head carga-div-careers-head">
+                <h2>Carreras del período</h2>
+                <span>Arrastra o toca una carrera</span>
+              </div>
+
+              <div id="cargaDivCarreras" class="carga-div-careers">
+                <div class="carga-div-empty">Sin carreras cargadas.</div>
+              </div>
+            </section>
+          </section>
+        </div>
+
+        <footer>
+          <button id="cargaDivBtnOk" class="carga-btn primary" type="button">
+            Cerrar
+          </button>
+        </footer>
+      </article>
+    </section>
+
+    <!-- =====================================================
+      MODAL RESUMEN DE CARGA
+    ====================================================== -->
+    <section id="cargaResumenModal" class="carga-modal" hidden>
+      <div class="carga-modal-backdrop" data-carga-close="1"></div>
+
+      <article class="carga-modal-card">
+        <header>
+          <div>
+            <h2>Resumen de carga</h2>
+            <p id="cargaResumenFecha">—</p>
+          </div>
+
+          <button id="cargaBtnCerrarResumen" class="carga-icon-btn" type="button" aria-label="Cerrar">
+            ×
+          </button>
+        </header>
+
+        <div id="cargaResumenBody" class="carga-modal-body">
+          Sin resumen.
+        </div>
+
+        <footer>
+          <button id="cargaBtnOkResumen" class="carga-btn primary" type="button">
+            Cerrar
+          </button>
+        </footer>
+      </article>
+    </section>
+  </main>
+
+  <!-- =====================================================
+    DEPENDENCIAS BDLOCAL NECESARIAS PARA CARGA
+  ====================================================== -->
+  <script src="../BDLocal/bdl.config.js"></script>
+  <script src="../BDLocal/bdl.schema.js"></script>
+  <script src="../BDLocal/bdl.keys.js"></script>
+  <script src="../BDLocal/bdl.db.js"></script>
+  <script src="../BDLocal/bdl.state.js"></script>
+  <script src="../BDLocal/bdl.cache.js"></script>
+
+  <script src="../BDLocal/normalizers/bdl.norm.text.js"></script>
+  <script src="../BDLocal/normalizers/bdl.norm.periodo.js"></script>
+  <script src="../BDLocal/normalizers/bdl.norm.carrera.js"></script>
+  <script src="../BDLocal/normalizers/bdl.norm.requisito.js"></script>
+  <script src="../BDLocal/normalizers/bdl.norm.estudiante.js"></script>
+  <script src="../BDLocal/normalizers/bdl.norm.nota.js"></script>
+  <script src="../BDLocal/normalizers/bdl.norm.division.js"></script>
+  <script src="../BDLocal/normalizers/bdl.norm.error.js"></script>
+
+  <script src="../BDLocal/repositories/bdl.repo.base.js"></script>
+  <script src="../BDLocal/repositories/bdl.repo.config.js"></script>
+  <script src="../BDLocal/repositories/bdl.repo.periodos.js"></script>
+  <script src="../BDLocal/repositories/bdl.repo.carreras.js"></script>
+  <script src="../BDLocal/repositories/bdl.repo.personas.js"></script>
+  <script src="../BDLocal/repositories/bdl.repo.estudiantes.js"></script>
+  <script src="../BDLocal/repositories/bdl.repo.requisitos.js"></script>
+  <script src="../BDLocal/repositories/bdl.repo.notas.js"></script>
+  <script src="../BDLocal/repositories/bdl.repo.divisiones.js"></script>
+  <script src="../BDLocal/repositories/bdl.repo.dashboard.js"></script>
+  <script src="../BDLocal/repositories/bdl.repo.errores.js"></script>
+  <script src="../BDLocal/repositories/bdl.repositories.index.js"></script>
+
+  <!-- Nuevo: limpieza segura de datos por período -->
+  <script src="../BDLocal/repositories/bdl.repo.periodo-cleanup.js"></script>
+
+  <script src="../BDLocal/api/bdl.api.js"></script>
+
+  <!-- =====================================================
+    MOTOR CARGA
+  ====================================================== -->
+  <script src="carga.config.js"></script>
+  <script src="carga.state.js"></script>
+
+  <script src="readers/carga.reader.encoding.js"></script>
+  <script src="readers/carga.reader.csv.js"></script>
+  <script src="readers/carga.reader.txt.js"></script>
+  <script src="readers/carga.reader.clipboard.js"></script>
+  <script src="readers/carga.reader.html.js"></script>
+  <script src="readers/carga.reader.xlsx.js"></script>
+  <script src="readers/carga.reader.file.js"></script>
+
+  <script src="mapping/carga.field-map.js"></script>
+  <script src="mapping/carga.detect-periodo.js"></script>
+  <script src="mapping/carga.detect-carrera.js"></script>
+  <script src="mapping/carga.detect-requisitos.js"></script>
+  <script src="mapping/carga.detect-notas.js"></script>
+  <script src="mapping/carga.detect-division.js"></script>
+
+  <!-- Seguridad de carreras antes de normalizar y validar -->
+  <script src="seguridad/carga.carreras.guard.js"></script>
+
+  <script src="process/carga.normalizer.js"></script>
+  <script src="process/carga.validator.js"></script>
+  <script src="process/carga.preview.js"></script>
+  <script src="process/carga.report.js"></script>
+  <script src="process/carga.distributor.js"></script>
+  <script src="process/carga.save.js"></script>
+
+  <!-- Nuevos: verificación y carga completa modular -->
+  <script src="process/carga.verify.js"></script>
+  <script src="process/carga.full-save.js"></script>
+
+  <script src="carga.app.js"></script>
+  <script src="carga.index.js"></script>
+
+  <!-- Nuevo: barra de progreso modular -->
+  <script src="progress/carga.progress.ui.js"></script>
+
+  <script src="carga.ui.js"></script>
+
+  <!-- =====================================================
+    GESTIÓN DE DIVISIONES EN CARGA
+  ====================================================== -->
+  <script src="divisiones/carga.divisiones.service.js"></script>
+  <script src="divisiones/carga.divisiones.ui.js"></script>
+</body>
+</html>

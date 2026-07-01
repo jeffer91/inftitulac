@@ -86,29 +86,50 @@ Con qué se conecta:
     options = options || {};
     if(state.loading){return;}
     if(!ensureModern()){return;}
+
     state.loading = true;
     status("Generando reportes por responsables...", "");
-    window.COOReport.build({periodId:state.periodId, division:state.division, refresh:!!options.refresh}).then(function(report){
-      var qa = runQA(report);
-      report.diagnostics = report.diagnostics || {};
-      report.diagnostics.qa = qa;
-      state.report = report;
-      if(!state.selectedAreaId || !window.COORender.areaById(report, state.selectedAreaId)){
-        state.selectedAreaId = window.COORender.firstPendingArea(report) || "";
-      }
-      window.COORender.renderAll(report, state);
-      var revisados = (report.global && report.global.totalEstudiantesRevisados) || 0;
-      if(qa.errors && qa.errors.length){
-        status("Coordi cargó, pero el diagnóstico encontró " + qa.errors.length + " error(es). Revisa Diagnóstico técnico.", "warn");
-      }else if(qa.warnings && qa.warnings.length){
-        status("Coordi listo con advertencias menores. Estudiantes revisados: " + revisados + ".", "warn");
-      }else{
-        status("Coordi listo. Fuente: " + (report.source || "Base local") + ". Estudiantes revisados: " + revisados + ".", "ok");
-      }
-    }).catch(function(error){
-      console.error("[Coordi]", error);
-      status(error && error.message ? error.message : String(error), "warn");
-    }).finally(function(){state.loading = false;});
+
+    Promise.resolve()
+      .then(function(){
+        return window.COOReport.build({
+          periodId:state.periodId,
+          division:state.division,
+          refresh:!!options.refresh
+        });
+      })
+      .then(function(report){
+        report = report || {};
+
+        var qa = runQA(report);
+        report.diagnostics = report.diagnostics || {};
+        report.diagnostics.qa = qa;
+
+        state.report = report;
+
+        if(!state.selectedAreaId || !window.COORender.areaById(report, state.selectedAreaId)){
+          state.selectedAreaId = window.COORender.firstPendingArea(report) || "";
+        }
+
+        window.COORender.renderAll(report, state);
+
+        var revisados = (report.global && report.global.totalEstudiantesRevisados) || 0;
+
+        if(qa.errors && qa.errors.length){
+          status("Coordi cargó, pero el diagnóstico encontró " + qa.errors.length + " error(es). Revisa Diagnóstico técnico.", "warn");
+        }else if(qa.warnings && qa.warnings.length){
+          status("Coordi listo con advertencias menores. Estudiantes revisados: " + revisados + ".", "warn");
+        }else{
+          status("Coordi listo. Fuente: " + (report.source || "Base local") + ". Estudiantes revisados: " + revisados + ".", "ok");
+        }
+      })
+      .catch(function(error){
+        console.error("[Coordi]", error);
+        status(error && error.message ? error.message : String(error), "warn");
+      })
+      .then(function(){
+        state.loading = false;
+      });
   }
 
   function buildMail(kind, areaId){
